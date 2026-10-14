@@ -9689,3 +9689,12 @@
   description:
     - "Bump ATOM image to the v0.1.7 release build (rocm/atom-dev:nightly_202610080328, digest-pinned)."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3911
+
+- config-keys:
+    - glm5.2-fp8-b300-sglang-agentic-mtp
+  scenario-type:
+    - agentic-coding
+  description:
+    - "Tune GLM-5.2 FP8 B300 SGLang MTP depth, admission caps, and HiCache scheduling with one recipe per concurrency; pin the upstream image by digest."
+    - "Extend the concurrency grid to 20, 24 and 28 with uncapped admission (2x CONC) to cover the high-throughput end of the frontier."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3836
