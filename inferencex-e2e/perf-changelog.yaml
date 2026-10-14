@@ -9707,6 +9707,15 @@
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4000
 
 - config-keys:
+    - glm5.2-fp4-b300-dynamo-sglang-agentic-agg-tp4
+  scenario-type:
+    - agentic-coding
+  description:
+    - "Add GLM-5.2 NVFP4 B300 AgentX on Dynamo (KV router) + SGLang with one aggregated TP4 engine per point, EAGLE speculative decoding and HiCache host-DRAM offload."
+    - "Concurrency 1, 8, 16 and 20 run plain TP4; concurrency 24, 32 and 48 add DP4 attention and the prefill delayer."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3953
+
+- config-keys:
     - dsv41flash-fp4-gb200-sglang-agentic-dspark
   scenario-type:
     - agentic-coding
