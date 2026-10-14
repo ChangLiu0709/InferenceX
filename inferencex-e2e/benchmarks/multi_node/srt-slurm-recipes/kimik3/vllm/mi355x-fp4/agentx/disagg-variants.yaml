@@ -1,4 +1,3 @@
-# Kimi-K3 AgentX with TP8 workers, MoRIIO READ and prefill-only CPU offload.
 base:
   schema: 2
   name: kimik3-fp4-mi355x-vllm-disagg-agentic
