@@ -9762,3 +9762,53 @@
     - "Bump the image to vllm/vllm-openai:nightly-dev-arm64-cu13.0.1-20ebb28 and Dynamo to 1.6.0.dev20261010; use the mxfp4 indexer KV cache, KV router with fastokens, dedicated etcd/nats/frontend placement for disaggregated recipes, and per-configuration decode CUDA-graph sizes."
     - "Reduce the Mooncake store segment to 140 GB per rank (125 GB for c1152), so dram-utilization becomes 0.666667 and 0.595238."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3738
+
+- config-keys:
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-agg
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-disagg
+  scenario-type:
+  - agentic-coding
+  all-evals: true
+  description:
+  - Add GB200 vLLM DSpark AgentX recipes on 20ebb28, including C32 and C64.
+  - 新增使用 20ebb28 的 GB200 vLLM DSpark AgentX 配置，包含 C32 和 C64。
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3416
+
+- config-keys:
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-agg
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-disagg
+  scenario-type:
+  - agentic-coding
+  description:
+  - Include throughput runs for the GB200 DSpark AgentX recipes.
+  - 为 GB200 DSpark AgentX 配置添加吞吐量测试。
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3416
+
+- config-keys:
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-agg
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-disagg
+  scenario-type:
+  - agentic-coding
+  description:
+  - Select the staged DeepSeek-V4-Pro-0813 checkpoint for GB200 DSpark recipes.
+  - 为 GB200 DSpark 配置选择已部署的 DeepSeek-V4-Pro-0813 检查点。
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3416
+
+- config-keys:
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-disagg
+  scenario-type:
+  - agentic-coding
+  description:
+  - Adjust C32 prefill memory headroom.
+  - 调整 C32 prefill 显存预留。
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3416
+
+- config-keys:
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-agg
+  - dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-disagg
+  scenario-type:
+  - agentic-coding
+  description:
+  - Refresh GB200 DSpark recipes for the current launcher and use K6 for TP8 C1/C4/C8.
+  - 更新 GB200 DSpark 配置以适配当前启动脚本，并在 TP8 C1/C4/C8 使用 K6。
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3416

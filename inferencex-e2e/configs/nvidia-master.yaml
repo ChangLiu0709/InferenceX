@@ -9621,3 +9621,187 @@ glm5.2-fp4-b300-dynamo-sglang-agentic-agg-tp4:
           tp: 4
           ep: 1
           dp-attn: true
+
+dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-agg:
+  image: vllm/vllm-openai:nightly-dev-arm64-cu13.0.1-20ebb28
+  model: deepseek-ai/DeepSeek-V4-Pro-0813
+  model-prefix: dsv4
+  runner: cluster:gb200-nv
+  precision: fp4
+  framework: dynamo-vllm
+  router:
+    name: dynamo-router
+    version: 1.3.0.dev20260720
+  multinode: true
+  disagg: false
+  srt-recipe-dir: dsv4/vllm/gb200-fp4/agentx
+  scenarios:
+    agentic-coding:
+    - search-space:
+      - spec-decoding: draft_model
+        srt-recipe: agg-tp8-c1-dspark6.yaml
+        conc-list:
+        - 1
+        num-nodes: 2
+        worker:
+          num-worker: 1
+          tp: 8
+          ep: 1
+          dp-attn: false
+      - spec-decoding: draft_model
+        srt-recipe: agg-tp8-c4-dspark6.yaml
+        conc-list:
+        - 4
+        num-nodes: 2
+        worker:
+          num-worker: 1
+          tp: 8
+          ep: 1
+          dp-attn: false
+      - spec-decoding: draft_model
+        srt-recipe: agg-tp8-c8-dspark6.yaml
+        conc-list:
+        - 8
+        num-nodes: 2
+        worker:
+          num-worker: 1
+          tp: 8
+          ep: 1
+          dp-attn: false
+dsv4-fp4-gb200-dynamo-vllm-agentic-dspark-disagg:
+  image: vllm/vllm-openai:nightly-dev-arm64-cu13.0.1-20ebb28
+  model: deepseek-ai/DeepSeek-V4-Pro-0813
+  model-prefix: dsv4
+  runner: cluster:gb200-nv
+  precision: fp4
+  framework: dynamo-vllm
+  router:
+    name: dynamo-router
+    version: 1.3.0.dev20260720
+  kv-p2p-transfer: nixl
+  multinode: true
+  disagg: true
+  srt-recipe-dir: dsv4/vllm/gb200-fp4/agentx
+  scenarios:
+    agentic-coding:
+    - search-space:
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep8-dep8-c32-dspark5.yaml
+        conc-list:
+        - 32
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep8-dep8-c64-dspark5.yaml
+        conc-list:
+        - 64
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep8-dep8-c128-dspark5.yaml
+        conc-list:
+        - 128
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep8-dep8-c256-dspark5.yaml
+        conc-list:
+        - 256
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep8-dep12-c360-dspark6.yaml
+        conc-list:
+        - 360
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 12
+          ep: 12
+          dp-attn: true
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep8-dep8-c384-dspark6.yaml
+        conc-list:
+        - 384
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 8
+          ep: 8
+          dp-attn: true
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep12-dep12-c384-dspark5.yaml
+        conc-list:
+        - 384
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 12
+          ep: 12
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 12
+          ep: 12
+          dp-attn: true
+      - spec-decoding: draft_model
+        srt-recipe: disagg-1p1d-dep12-dep16-c512-dspark6.yaml
+        conc-list:
+        - 512
+        kv-offloading: none
+        prefill:
+          num-worker: 1
+          tp: 12
+          ep: 12
+          dp-attn: true
+        decode:
+          num-worker: 1
+          tp: 16
+          ep: 16
+          dp-attn: true
