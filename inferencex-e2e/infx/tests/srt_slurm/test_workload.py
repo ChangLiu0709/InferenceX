@@ -14,6 +14,7 @@ from infx.clusters.slurm import Fabric
 from infx.srt_slurm.synthetic_acceptance import selected_recipes
 from infx.srt_slurm.workload import (
     bind_workload,
+    check_setup_script,
     compose_recipe,
     parse_concurrencies,
     resolve_fabric,
@@ -27,6 +28,8 @@ MULTI_ENV = {
 }  # fmt: skip
 AGENTX_ENV = {"IMAGE": "nvcr.io#org/image:3", "MODEL": "org/model", "PRECISION": "fp4", "CONC_LIST": "8"}
 CLIENT_ENV = {"RESULT_DIR": "/logs/agentic", "HF_HUB_CACHE": "/hf_hub_cache"}
+MOONCAKE = '{"name": "mooncake", "version": "0.3.11.post1"}'
+ROUTER = '{"name": "vllm-router", "version": "0.1.14"}'
 
 
 @pytest.fixture
@@ -100,6 +103,9 @@ def test_bundles_take_the_shared_block_under_base_and_keep_their_variants(projec
     }}}}, True, True,
      "override_tp8.benchmark.env.IS_MULTINODE (= 'false'), "
      "override_tp8.benchmark.env.ENABLE_AGENTX_POWER (= '0')"),
+    ({"environment": {"ROUTER_VERSION": "0.1.14"}}, True, False, "environment.ROUTER_VERSION (= '0.1.14')"),
+    ({"base": {}, "override_c": {"services": [{"name": "m", "env": {"KV_OFFLOAD_BACKEND_VERSION": "1"}}]}},
+     True, True, "override_c.services[0].env.KV_OFFLOAD_BACKEND_VERSION (= '1')"),
     # The workflow exports the matrix point; a fragment pins none of it.
     ({"benchmark": {"env": {"REQUIRE_POWER": "1", "MODEL": "/model"}}}, True, True,
      "benchmark.env.MODEL (= '/model'), benchmark.env.REQUIRE_POWER (= '1')"),
@@ -177,6 +183,65 @@ def test_a_power_point_gets_telemetry_and_its_concurrencies_on_a_bundle_variant(
 def test_a_malformed_point_is_rejected_before_binding(environment, message):
     with pytest.raises(ValueError, match=message):
         bind_workload({}, environment, agentic=False, multinode=True)
+
+
+def test_a_component_a_script_installs_gets_the_master_version_where_the_script_runs():
+    recipe = {
+        "setup_script": "vllm-mooncake.sh",
+        "environment": {"NCCL_DEBUG": "WARN"},
+        "services": [
+            {"name": "mooncake-master", "preamble": "bash /configs/vllm-mooncake.sh"},
+            {"name": "etcd", "env": {"ETCD_QUOTA": "1"}},
+        ],
+    }
+    environment = {**AGENTX_ENV, "KV_OFFLOAD_BACKEND_METADATA": MOONCAKE}
+
+    bound = bind_workload(recipe, environment, agentic=True, multinode=True)
+
+    assert bound["environment"] == {"NCCL_DEBUG": "WARN", "KV_OFFLOAD_BACKEND_VERSION": "0.3.11.post1"}
+    assert bound["services"] == [
+        {"name": "mooncake-master", "preamble": "bash /configs/vllm-mooncake.sh",
+         "env": {"KV_OFFLOAD_BACKEND_VERSION": "0.3.11.post1"}},
+        {"name": "etcd", "env": {"ETCD_QUOTA": "1"}},
+    ]  # fmt: skip
+
+
+@pytest.mark.parametrize("metadata", ["", '{"name": "mooncake"}', '{"name": "lmcache", "version": "1"}'])
+def test_a_point_that_does_not_declare_an_installed_components_version_is_rejected(metadata):
+    recipe = {"services": [{"name": "mooncake-master", "preamble": "bash /configs/vllm-mooncake.sh"}]}
+    environment = {**AGENTX_ENV, "KV_OFFLOAD_BACKEND_METADATA": metadata}
+    message = "^vllm-mooncake.sh installs mooncake, so the master config must declare"
+
+    with pytest.raises(ValueError, match=message):
+        bind_workload(recipe, environment, agentic=True, multinode=True)
+
+
+def test_a_router_pinned_in_setup_pip_packages_must_be_the_master_router():
+    recipe = {
+        "frontend": {"type": "vllm-router", "env": {"SETUP_PIP_PACKAGES": "vllm-router==0.1.13"}},
+        "roles": {"agg": {"env": {"SETUP_PIP_PACKAGES": "Pillow fastapi"}}},
+    }
+    environment = {**AGENTX_ENV, "ROUTER_METADATA": ROUTER}
+
+    with pytest.raises(ValueError) as error:
+        bind_workload(recipe, environment, agentic=True, multinode=True)
+    assert str(error.value) == "SETUP_PIP_PACKAGES vllm-router==0.1.13 is not the master router 0.1.14"
+    recipe["frontend"]["env"]["SETUP_PIP_PACKAGES"] = "vllm-router==0.1.14"
+    bind_workload(recipe, environment, agentic=True, multinode=True)
+
+
+def test_a_setup_script_srtctl_would_not_find_fails(project):
+    source = Path("fragment.yaml")
+    patches = project / "utils/srt-slurm/configs/patches"
+    patches.mkdir(parents=True)
+    (patches / "upstream.sh").write_text("true\n")
+    check_setup_script({"setup_script": "upstream.sh"}, source, project)
+    with pytest.raises(ValueError, match="^fragment.yaml: setup_script own.sh is in none of"):
+        check_setup_script({"setup_script": "own.sh"}, source, project)
+    configs = project / "benchmarks/multi_node/srt-slurm-recipes/configs"
+    configs.mkdir(parents=True)
+    (configs / "own.sh").write_text("true\n")
+    check_setup_script({"setup_script": "own.sh"}, source, project)
 
 
 def test_conc_list_must_be_canonical_positive_integers():
