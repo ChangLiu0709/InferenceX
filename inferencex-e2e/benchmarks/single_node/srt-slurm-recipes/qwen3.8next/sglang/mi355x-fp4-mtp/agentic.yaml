@@ -55,6 +55,9 @@ base:
         # Outlast AIPerf's 300 s client connection pool.
         SGLANG_TIMEOUT_KEEP_ALIVE: '1800'
         SGLANG_ENABLE_SPEC_V2: '1'
+        # FlyDSL GDN causal conv1d and GDN decode/verify kernels; opt-in, "1" only.
+        SGLANG_AITER_GDN_CONV: '1'
+        SGLANG_AITER_GDN_DECODE: '1'
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
