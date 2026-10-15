@@ -1,5 +1,6 @@
-# Qwen3.8-Flash-Next Quark MXFP4 (FP8 PLE) AgentX on MI355X via SGLang with
-# native NEXTN MTP. The ~126 GiB checkpoint fits on one MI355X, so TP1.
+# Qwen3.8-Flash-Next Quark MXFP4 MoE (MTP experts included), FP8 attention and
+# FP8 PLE, AgentX on MI355X via SGLang with native NEXTN MTP. The ~116 GiB
+# checkpoint fits on one MI355X, so TP1.
 base:
   schema: 2
   name: qwen3.8next-fp4-mi355x-sglang-agentic
@@ -23,8 +24,8 @@ base:
       workers: 1
       gpus: 1
       args:
-        served-model-name: amd/Qwen3.8-Flash-Next-Quark-MXFP4-PLEFP8
-        tokenizer-path: amd/Qwen3.8-Flash-Next-Quark-MXFP4-PLEFP8
+        served-model-name: amd/Qwen3.8-Flash-Next-Quark-MXFP4-AttnFP8-PLEFP8
+        tokenizer-path: amd/Qwen3.8-Flash-Next-Quark-MXFP4-AttnFP8-PLEFP8
         trust-remote-code: true
         tensor-parallel-size: 1
         data-parallel-size: 1
