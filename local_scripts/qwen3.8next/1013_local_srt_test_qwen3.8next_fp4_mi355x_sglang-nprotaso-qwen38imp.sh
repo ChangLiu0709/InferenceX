@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Local smoke test: Qwen3.8-Flash-Next MXFP4 (Quark, FP8 PLE) AgentX on MI355X
+# Local smoke test: Qwen3.8-Flash-Next MXFP4 (Quark, FP8 attention, FP8 PLE) AgentX on MI355X
 # via SGLang with native NEXTN MTP, launched through the new InferenceX
 # srt-slurm flow (the same `python -m infx.launch run` CI uses).
 #
 # CI config (inferencex-e2e/configs/amd-master.yaml):
 #   qwen3.8next-fp4-mi355x-sglang-agentic-mtp
-#     image:  lmsysorg/sglang:v0.5.21-rocm724-mi35x@sha256:2f6b9105e26f...
-#     model:  amd/Qwen3.8-Flash-Next-Quark-MXFP4-PLEFP8, model-prefix qwen3.8next
+#     image:  lmsysorg/sglang-rocm:v0.5.21-rocm10-mi35x-20261014@sha256:e4498f5d595f...
+#             plus the recipe's setup_script patches
+#     model:  amd/Qwen3.8-Flash-Next-Quark-MXFP4-AttnFP8-PLEFP8, model-prefix qwen3.8next
 #     runner: cluster:mi355x-amds, precision fp4, framework sglang
 #     agentic-coding, dram-utilization 0.80
 #     tp1 ep1 mtp, kv-offloading none, conc-list [1, 4, 8, 12, 16]
@@ -17,6 +18,8 @@
 #   - IMAGE defaults to aigmkt/sglang:nprotaso_qwen3_8_improvement (Nikolai's
 #     build of amd-nprotaso qwen_3_8_improvement: AITER badcd62a, SGLang
 #     92e3addcd1). The launcher binds the recipe's model.container from IMAGE.
+#     On any image but the config's, the recipe's setup_script is dropped;
+#     IMAGE=<config image> runs exactly what CI runs.
 #     The feature flags below are added to the server env (roles.agg.env) of a
 #     private copy of the recipe.
 #   - A private runners.yaml: unique runner name (launcher cleanup scancels by
@@ -82,10 +85,12 @@ RUNNER_NAME="${RUNNER_NAME:-$(echo "${USER%%@*}" | tr -c 'a-zA-Z0-9\n' '-')-mi35
 SQUASH_DIR="${SQUASH_DIR:-${SCRATCH}/squash}"
 SRT_OUTPUTS="${SRT_OUTPUTS:-${SCRATCH}/srt-slurm/outputs}"
 HF_HUB_CACHE_HOST="${HF_HUB_CACHE_HOST:-/it-share/hf-hub-cache}"
-# Weights served for the config's MODEL: the fanwu103 MXFP4-PLEFP8 weights every
-# earlier run used. The PLE table loads in BF16 (~95 GiB) before its FP8 swap, so
-# a GPU with leaked VRAM OOMs at load; the host-setup hook waits for clean GPUs.
-MODEL_HOST_DIR="${MODEL_HOST_DIR:-/it-share/hf-hub-cache/Qwen3.8-Flash-Next-MXFP4-PLEFP8}"
+# Weights served for the config's MODEL: a plain directory of hard links into the
+# HF cache snapshot of amd/Qwen3.8-Flash-Next-Quark-MXFP4-AttnFP8-PLEFP8 (only the
+# parent dir is mounted, so a snapshot's ../../blobs symlinks would dangle).
+# The PLE table loads in BF16 (~95 GiB) before its FP8 swap, so a GPU with leaked
+# VRAM OOMs at load; the host-setup hook waits for clean GPUs.
+MODEL_HOST_DIR="${MODEL_HOST_DIR:-/it-share/hf-hub-cache/Qwen3.8-Flash-Next-Quark-MXFP4-AttnFP8-PLEFP8}"
 SLURM_EXCLUDE_NODES="${SLURM_EXCLUDE_NODES:-}"
 DRY_RUN="${DRY_RUN:-0}"
 
@@ -241,12 +246,16 @@ for key, value in env.items():
 PY
 }
 
-# Adds the feature flags to the server env of the workspace's recipe copy.
+# Adds the feature flags to the server env of the workspace's recipe copy. The
+# recipe's setup_script patches the config's image checkouts, so it only runs
+# when IMAGE is that image.
 patch_recipe() {
     "$LAUNCH_PYTHON" - "$1" <<PY
 import sys, yaml
 path = sys.argv[1]
 recipe = yaml.safe_load(open(path))
+if "${IMAGE}" != "${CONFIG_IMAGE}" and recipe["base"].pop("setup_script", None):
+    print("  setup_script dropped: IMAGE is not the config image")
 recipe["base"]["roles"]["agg"].setdefault("env", {}).update({
     "SGLANG_EXACT_CHUNK_FILL": "${EXACT_CHUNK_FILL}",
     "SGLANG_AITER_GDN_CONV": "${AITER_GDN_CONV}",
