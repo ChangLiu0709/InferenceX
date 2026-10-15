@@ -40,6 +40,10 @@ base:
         watchdog-timeout: 1200
         chunked-prefill-size: 16384
         mamba-ssm-dtype: bfloat16
+        # PLE n-gram table in CPU pinned memory; offload needs the fp8 storage
+        # declared up front instead of switched to at load.
+        ple-offload-embedding: true
+        json-model-override-args: '{"text_config": {"ple_embedding_dtype": "float8_e4m3fn"}}'
         scheduler-recv-interval: 10
         stream-interval: 50
         reasoning-parser: qwen3
