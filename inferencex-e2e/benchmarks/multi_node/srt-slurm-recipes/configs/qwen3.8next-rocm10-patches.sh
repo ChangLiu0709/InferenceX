@@ -4,6 +4,8 @@
 #   - ROCm/aiter#5992: FlyDSL causal conv1d prefill and GDN decode/verify
 #   - sgl-project/sglang#41879: opt-in SGLANG_AITER_GDN_CONV/_DECODE hooks
 #   - fused Triton QK Gemma-RMSNorm + M-RoPE + gate on HIP
+#   - unquantized MTP draft from a Quark checkpoint (amd/ stores the MTP experts
+#     in BF16 without excluding them), from amd-nprotaso/sglang qwen_3_8_improvement
 # Python only, so nothing is rebuilt. A patch that no longer applies fails the worker.
 set -euo pipefail
 patches="$(dirname "${BASH_SOURCE[0]}")/qwen3.8next-rocm10-patches"
@@ -21,3 +23,4 @@ apply() {
 apply /sgl-workspace/aiter aiter-flydsl-gdn-conv-decode.patch
 apply /sgl-workspace/sglang sglang-aiter-gdn-conv-decode-hooks.patch
 apply /sgl-workspace/sglang sglang-fused-qk-rope-gate-hip.patch
+apply /sgl-workspace/sglang sglang-unquantized-mtp-draft.patch
