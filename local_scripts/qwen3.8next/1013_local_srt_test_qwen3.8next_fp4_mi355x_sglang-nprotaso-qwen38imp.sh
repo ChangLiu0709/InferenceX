@@ -159,6 +159,8 @@ ${EXCLUDE_LINE}
         import: compute
         multi-node-import: false
       srt-slurm:
+        workspace-mounts:
+          runners/srt-slurm/exporters/amd-power.json: /etc/metrics/config.json
         network-interface: eno0
         single-node-time-limit: 500
         single-node-models: staged
@@ -177,7 +179,23 @@ ${EXCLUDE_LINE}
           /it-share/hf_home: /it-share/hf_home
         extra:
           visible_devices_env: ROCR_VISIBLE_DEVICES
-          default_gpu_exporter: null
+          # Same exporter as CI's mi355x-amds: native AgentX power needs it.
+          default_gpu_exporter:
+            container_image: ghcr.io#semianalysisai/amd-device-metrics-exporter@sha256:0d1c32c965f955b0fbf1dc87a84f7205be9019ce8d2fdf1eb929de28c71cec54
+            port: 19500
+            command: /home/amd/tools/entrypoint.sh
+            kind: custom
+            gpu_labels:
+              index: gpu_id
+              identity: serial_number
+            gpu_metrics:
+              power:
+                metric: gpu_power_usage
+                scope: gpu_device_power_as_reported_by_amd_device_metrics_exporter
+              gpu_util:
+                metric: gpu_gfx_activity
+              temperature:
+                metric: gpu_junction_temperature
           nginx_raise_ulimit: false
 EOF
 
