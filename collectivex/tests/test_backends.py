@@ -184,6 +184,8 @@ class NcclLowLatencyLadderSizing(unittest.TestCase):
         backend._algorithm = "LL" if low_latency else "HT"
         backend._layout = module.Layout.RANK_MAJOR if low_latency else module.Layout.FLAT
         backend._bootstrap_comm = lambda: None
+        # create_buffer stamps the installed wheel into kernel_generation.
+        module.metadata = types.SimpleNamespace(version=lambda name: "0.2.0.dev20261005")
         backend._recv_window_for_test = types.SimpleNamespace(
             is_valid=True, close=lambda: None
         )
@@ -256,7 +258,7 @@ class NcclLowLatencyLadderSizing(unittest.TestCase):
     def test_ll_receive_grows_with_requested_ladder(self):
         module = self._module()
         spec = types.SimpleNamespace(max_tokens_per_rank=99)
-        for requested, expected in [(99, 256), (512, 512), (1024, 1024)]:
+        for requested, expected in [(99, 99), (512, 512), (1024, 1024)]:
             sized = self._backend(module, low_latency=True)
             sized.create_buffer(types.SimpleNamespace(max_tokens_per_rank=requested))
             self.assertEqual(sized.created_configs[0].max_dispatch_tokens_per_rank, expected)
@@ -287,7 +289,7 @@ class NcclLowLatencyLadderSizing(unittest.TestCase):
         backend._comm.register_window.assert_called_once_with(
             backend._recv_x, flags=module.nccl_core.WindowFlag.COLL_SYMMETRIC
         )
-        self.assertEqual(backend._recv_x.shape, (8, 256, 7168))
+        self.assertEqual(backend._recv_x.shape, (8, 64, 7168))
         self.assertEqual(backend._recv_count.shape, (8,))
         self.assertIs(backend._recv_x_t.window, backend._recv_window)
 
@@ -349,8 +351,8 @@ class RoundtripStagingGate(unittest.TestCase):
 
     def test_the_gate_truth_table(self):
         table = (
-            # A real device copy hoists regardless of precision, so MoRI BF16 scale-up and
-            # FlashInfer BF16 are excluded on the same terms as every fp8 stage...
+            # A real device copy hoists regardless of precision, as MoRI BF16 scale-up and
+            # FlashInfer BF16 once did, on the same terms as every fp8 stage...
             (True, "native", "bf16", True),
             (True, "native", "fp8", True),
             # ...a pointer-assignment stage never does: hoisting would hand a low-latency
@@ -568,32 +570,21 @@ class GraphReplayDefaults(unittest.TestCase):
             ))
             return calls[-1]["num_max_tokens_per_rank"], calls[-1]["do_cpu_sync"]
 
-        # vLLM's graphed decode passes the next power of two of the batch; prefill syncs exactly.
+        # vLLM (graphs on) passes the next power of two of the batch, in prefill as in decode.
         for tokens, capacity in ((1, 1), (3, 4), (65, 128), (512, 512)):
             self.assertEqual(dispatched(decode, tokens), (capacity, False))
-        self.assertEqual(dispatched(prefill, 3), (512, True))
+        self.assertEqual(dispatched(prefill, 3), (4, False))
         self.assertEqual(
             (decode.cuda_graph_supported, decode.kernel_generation),
-            (True, "v2-elastic-buffer-nosync"),
+            (True, "v2-elastic-buffer-vllm-nosync"),
         )
         self.assertEqual(
-            (prefill.cuda_graph_supported, prefill.kernel_generation), (False, "v2-elastic-buffer")
+            (prefill.cuda_graph_supported, prefill.kernel_generation),
+            (False, "v2-elastic-buffer-vllm-nosync"),
         )
         self.assertTrue(ll.cuda_graph_supported)
 
-    def test_uccl_graphs_intranode_low_latency_except_b200_fp8(self):
-        cls = _import_stubbed("ep_uccl", deep_ep=_deep_ep("Buffer", "Config")).UCCLEPBackend
-        with mock.patch.dict(os.environ, {}, clear=True):
-            for gate, expected in (
-                (_gate(cls, "low-latency"), True),
-                (_gate(cls, "normal"), False),
-                (_gate(cls, "low-latency", world_size=16), False),
-                (_gate(cls, "low-latency", precision="fp8", runner="b200-nscale"), False),
-                (_gate(cls, "low-latency", runner="b200-nscale"), True),
-            ):
-                self.assertIs(gate.cuda_graph_supported, expected)
-        with mock.patch.dict(os.environ, {"UCCL_RDMA_ADAPTIVE_SLEEP": "1"}):
-            self.assertFalse(_gate(cls, "low-latency").cuda_graph_supported)
+    # uccl-ep's graph gate lives with its vLLM contract in test_uccl_contract.py.
 
     def test_flashinfer_and_nccl_ht_graph_decode_only(self):
         flashinfer = _import_stubbed("ep_flashinfer").FlashInferEPBackend
