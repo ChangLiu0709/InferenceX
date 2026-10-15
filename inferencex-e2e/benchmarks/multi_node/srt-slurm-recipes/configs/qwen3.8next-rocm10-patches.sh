@@ -14,6 +14,11 @@
 #   - AITER topk_gating for the 512-expert router (SGLANG_ROCM_USE_AITER_TOPK_GATING,
 #     default on)
 #   - sgl-project/sglang#44302: fused QKVZ/BA packing for head ratio 3
+#   - faster FlyDSL GDN decode/verify (used with SGLANG_AITER_GDN_DECODE)
+#   - exact chunk fill (default on for gfx95) fixes: unfinished prefill chunks end
+#     on a QSA page, padded QSA group writes read an inert source, and off-page
+#     prefixes use the absolute mamba checkpoint grid
+#   - fused shared-expert loading for Qwen3.8, strict for the MTP draft
 # All but the upstream PRs come from amd-nprotaso/{aiter,sglang} qwen_3_8_improvement.
 # Python only, so nothing is rebuilt. A patch that no longer applies fails the worker.
 set -euo pipefail
@@ -40,6 +45,7 @@ apply /sgl-workspace/aiter aiter-flydsl-gdn-conv-decode.patch
 apply /sgl-workspace/aiter aiter-flydsl-hc-mix.patch
 apply /sgl-workspace/aiter aiter-flydsl-qsa-pa-decode.patch
 apply /sgl-workspace/aiter aiter-flydsl-gdn-fused-prefill.patch
+apply /sgl-workspace/aiter aiter-flydsl-gdn-decode-verify-perf.patch
 apply /sgl-workspace/sglang sglang-aiter-gdn-conv-decode-hooks.patch
 apply /sgl-workspace/sglang sglang-fused-qk-rope-gate-hip.patch
 apply /sgl-workspace/sglang sglang-unquantized-mtp-draft.patch
@@ -48,5 +54,7 @@ apply /sgl-workspace/sglang sglang-flydsl-qsa-pa-decode.patch
 apply /sgl-workspace/sglang sglang-aiter-gdn-prefill.patch
 apply /sgl-workspace/sglang sglang-aiter-topk-gating.patch
 apply /sgl-workspace/sglang sglang-gdn-ratio3-packing.patch
+apply /sgl-workspace/sglang sglang-qsa-padded-group-mtp-shared-expert.patch
+apply /sgl-workspace/sglang sglang-prefill-chunk-qsa-alignment.patch
 
 echo "$digest" > "$marker"
