@@ -182,6 +182,13 @@ class EPBackend(abc.ABC):
             raise ValueError(f"COLLX_CUDA_GRAPH must be '0' or '1', got {setting!r}")
         return self.cuda_graph_supported and setting == "1"
 
+    def implementation_details(self) -> dict:
+        """Realized library configuration, published as `implementation.library_config`: what the
+        adapter chose or the library resolved that changes what a row measures (token capacity,
+        zero-copy, SM budgets, QPs, launch tuples). JSON-serializable and read once the buffer
+        exists; empty publishes null. `library_version` stays its own top-level field."""
+        return {}
+
     def fused_quantize(self, eager):
         """The fp8 quantize the TIMED dispatch should call, keyed on mode.
 
@@ -548,7 +555,7 @@ class EPBackend(abc.ABC):
 
     def alignment_misses(self):
         """Per sample of the last component, 1 where this rank's alignment spin ran out before its
-        window opened; None under graph replay."""
+        timed work was enqueued (eager) or before its replay call returned (graphed)."""
         return self.timing.missed_samples()
 
     def host_holds(self):
@@ -580,6 +587,10 @@ class EPBackend(abc.ABC):
     def graph_replay_output(self, problem):
         """Graph replay's value check (GraphTiming.replay_output)."""
         return self.timing.replay_output(problem)
+
+    def graph_replay_restore(self, problem):
+        """Undo the value check's input rescale once its drained reference has run."""
+        self.timing.restore_replay_inputs(problem)
 
     def finalize(self, rc):
         """Barrier and tear down the process group; returns rc."""
