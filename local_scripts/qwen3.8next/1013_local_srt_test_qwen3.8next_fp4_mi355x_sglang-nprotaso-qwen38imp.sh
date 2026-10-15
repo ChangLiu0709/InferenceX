@@ -61,7 +61,9 @@ THINKING_MODE="${THINKING_MODE:-thinking_on}"
 # ---- Nikolai feature flags (server env) ----
 EXACT_CHUNK_FILL="${EXACT_CHUNK_FILL:-1}"
 AITER_GDN_CONV="${AITER_GDN_CONV:-1}"
-AITER_GDN_DECODE="${AITER_GDN_DECODE:-1}"
+# Off: without ROCm/aiter#5992 the FlyDSL GDN decode launch is not captured in
+# CUDA graphs and decode output degenerates (GSM8K 0.0).
+AITER_GDN_DECODE="${AITER_GDN_DECODE:-0}"
 AITER_HC_MIX="${AITER_HC_MIX:-1}"
 AITER_QSA_PA_DECODE="${AITER_QSA_PA_DECODE:-1}"
 AITER_GDR_FLYDSL="${AITER_GDR_FLYDSL:-1}"
