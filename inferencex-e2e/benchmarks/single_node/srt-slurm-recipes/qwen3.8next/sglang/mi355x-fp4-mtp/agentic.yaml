@@ -15,8 +15,9 @@ base:
     tachometer:
       enabled: false
   engine: sglang
-  # FlyDSL GDN conv/decode kernels and the fused QK-norm/RoPE/gate on HIP,
-  # patched into the upstream ROCm 10 image.
+  # Qwen3.8 AITER/FlyDSL kernels and SGLang dispatch (GDN conv/decode/prefill,
+  # fused QK-norm/RoPE/gate, hc_mix, QSA paged decode, topk gating, ratio-3
+  # packing), patched into the upstream ROCm 10 image.
   setup_script: qwen3.8next-rocm10-patches.sh
   roles:
     agg:

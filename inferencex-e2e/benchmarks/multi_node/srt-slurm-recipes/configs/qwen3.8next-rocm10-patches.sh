@@ -5,22 +5,48 @@
 #   - sgl-project/sglang#41879: opt-in SGLANG_AITER_GDN_CONV/_DECODE hooks
 #   - fused Triton QK Gemma-RMSNorm + M-RoPE + gate on HIP
 #   - unquantized MTP draft from a Quark checkpoint (amd/ stores the MTP experts
-#     in BF16 without excluding them), from amd-nprotaso/sglang qwen_3_8_improvement
+#     in BF16 without excluding them)
+#   - FlyDSL hc_mix for the hyper-connection mix (SGLANG_AITER_HC_MIX, default
+#     on) and the single-kernel hc_combine on ROCm (SGLANG_HC_COMBINE_SPLIT=0)
+#   - opt-in FlyDSL paged decode for QSA attention (SGLANG_AITER_QSA_PA_DECODE)
+#   - opt-in AITER GDN chunked prefill (SGLANG_AITER_GDN_PREFILL; only
+#     SGLANG_AITER_GDN_PREFILL_H=fused works on this AITER)
+#   - AITER topk_gating for the 512-expert router (SGLANG_ROCM_USE_AITER_TOPK_GATING,
+#     default on)
+#   - sgl-project/sglang#44302: fused QKVZ/BA packing for head ratio 3
+# All but the upstream PRs come from amd-nprotaso/{aiter,sglang} qwen_3_8_improvement.
 # Python only, so nothing is rebuilt. A patch that no longer applies fails the worker.
 set -euo pipefail
-patches="$(dirname "${BASH_SOURCE[0]}")/qwen3.8next-rocm10-patches"
+patches="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qwen3.8next-rocm10-patches"
+# Later patches touch files of earlier ones, so a per-patch reverse check cannot
+# tell a re-run apart; the marker records the patch set a container already has.
+marker=/sgl-workspace/.qwen3.8next-rocm10-patches
+digest="$(cat "${BASH_SOURCE[0]}" "$patches"/*.patch | sha256sum | cut -d' ' -f1)"
+if [[ -f $marker ]]; then
+    if [[ "$(cat "$marker")" == "$digest" ]]; then
+        echo "qwen3.8next patches already applied"
+        exit 0
+    fi
+    echo "qwen3.8next: $marker is from a different patch set" >&2
+    exit 1
+fi
 
 apply() {
-    local repo=$1 patch=$patches/$2
-    if git -c safe.directory="*" -C "$repo" apply --reverse --check "$patch" 2>/dev/null; then
-        echo "qwen3.8next patch already applied: $2"
-    else
-        git -c safe.directory="*" -C "$repo" apply "$patch"
-        echo "qwen3.8next patch applied: $2"
-    fi
+    git -c safe.directory="*" -C "$1" apply "$patches/$2"
+    echo "qwen3.8next patch applied: $2"
 }
 
 apply /sgl-workspace/aiter aiter-flydsl-gdn-conv-decode.patch
+apply /sgl-workspace/aiter aiter-flydsl-hc-mix.patch
+apply /sgl-workspace/aiter aiter-flydsl-qsa-pa-decode.patch
+apply /sgl-workspace/aiter aiter-flydsl-gdn-fused-prefill.patch
 apply /sgl-workspace/sglang sglang-aiter-gdn-conv-decode-hooks.patch
 apply /sgl-workspace/sglang sglang-fused-qk-rope-gate-hip.patch
 apply /sgl-workspace/sglang sglang-unquantized-mtp-draft.patch
+apply /sgl-workspace/sglang sglang-flydsl-hc-mix.patch
+apply /sgl-workspace/sglang sglang-flydsl-qsa-pa-decode.patch
+apply /sgl-workspace/sglang sglang-aiter-gdn-prefill.patch
+apply /sgl-workspace/sglang sglang-aiter-topk-gating.patch
+apply /sgl-workspace/sglang sglang-gdn-ratio3-packing.patch
+
+echo "$digest" > "$marker"
