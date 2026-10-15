@@ -55,6 +55,8 @@ base:
         SGLANG_USE_AITER: '1'
         SGLANG_USE_AITER_UNIFIED_ATTN: '1'
         AITER_FLYDSL_FORCE: '1'
+        SGLANG_MAMBA_SSM_DTYPE: bfloat16
+        SGLANG_USE_AITER_FP8_PER_TOKEN: '1'
         ROCM_QUICK_REDUCE_QUANTIZATION: INT8
         # Outlast AIPerf's 300 s client connection pool.
         SGLANG_TIMEOUT_KEEP_ALIVE: '1800'
