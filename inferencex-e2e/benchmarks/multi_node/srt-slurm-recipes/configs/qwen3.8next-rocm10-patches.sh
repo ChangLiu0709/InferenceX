@@ -4,8 +4,6 @@
 #   - ROCm/aiter#5992: FlyDSL causal conv1d prefill and GDN decode/verify
 #   - sgl-project/sglang#41879: opt-in SGLANG_AITER_GDN_CONV/_DECODE hooks
 #   - fused Triton QK Gemma-RMSNorm + M-RoPE + gate on HIP
-#   - unquantized MTP draft from a Quark checkpoint (amd/ stores the MTP experts
-#     in BF16 without excluding them)
 #   - FlyDSL hc_mix for the hyper-connection mix (SGLANG_AITER_HC_MIX, default
 #     on) and the single-kernel hc_combine on ROCm (SGLANG_HC_COMBINE_SPLIT=0)
 #   - opt-in FlyDSL paged decode for QSA attention (SGLANG_AITER_QSA_PA_DECODE)
@@ -48,7 +46,6 @@ apply /sgl-workspace/aiter aiter-flydsl-gdn-fused-prefill.patch
 apply /sgl-workspace/aiter aiter-flydsl-gdn-decode-verify-perf.patch
 apply /sgl-workspace/sglang sglang-aiter-gdn-conv-decode-hooks.patch
 apply /sgl-workspace/sglang sglang-fused-qk-rope-gate-hip.patch
-apply /sgl-workspace/sglang sglang-unquantized-mtp-draft.patch
 apply /sgl-workspace/sglang sglang-flydsl-hc-mix.patch
 apply /sgl-workspace/sglang sglang-flydsl-qsa-pa-decode.patch
 apply /sgl-workspace/sglang sglang-aiter-gdn-prefill.patch

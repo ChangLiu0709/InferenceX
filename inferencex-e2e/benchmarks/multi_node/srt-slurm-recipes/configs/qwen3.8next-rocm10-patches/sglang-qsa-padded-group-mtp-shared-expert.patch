@@ -1,8 +1,8 @@
-From f6ef02dd06df6e0b80779ff15afaf74cb5a8808d Mon Sep 17 00:00:00 2001
+From 733cb0df300a8cf855bf3805ba3a609a1184cd58 Mon Sep 17 00:00:00 2001
 From: Nikolai Protasov <nprotaso@amd.com>
 Date: Thu, 15 Oct 2026 19:37:55 +0000
-Subject: [PATCH 09/10] [AMD][Qwen3.8] Mask padded QSA group sources; strict
- MTP shared-expert loading
+Subject: [PATCH] [AMD][Qwen3.8] Mask padded QSA group sources; strict MTP
+ shared-expert loading
 
 A short extend can have fewer token rows than one QSA compression group, so the
 fixed-capacity write plan's padding entries must read the inert source slot 0.
@@ -71,7 +71,7 @@ index e100386662..f8358bdd32 100755
              # absolute page depth only when the kernel produced an h snapshot.
              mamba_track_seqlen_aligned = (seq_end // checkpoint_grid) * checkpoint_grid
 diff --git a/python/sglang/srt/models/qwen3_5_mtp.py b/python/sglang/srt/models/qwen3_5_mtp.py
-index ff76c2cd3e..6e0cb77344 100644
+index e3450be475..b3803b4a3c 100644
 --- a/python/sglang/srt/models/qwen3_5_mtp.py
 +++ b/python/sglang/srt/models/qwen3_5_mtp.py
 @@ -39,13 +39,10 @@ from sglang.srt.runtime_context import (
@@ -89,7 +89,7 @@ index ff76c2cd3e..6e0cb77344 100644
  
  def _mtp_quant_config(quant_config):
      """The quantization the MTP module itself is built with.
-@@ -316,12 +313,11 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -275,12 +272,11 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
          num_experts = getattr(self.config, "num_experts", None)
          # A fused shared expert lives in routed slot `num_experts`.
          num_fused_shared_experts = 0
@@ -107,7 +107,7 @@ index ff76c2cd3e..6e0cb77344 100644
          if num_experts is not None:
              expert_params_mapping = FusedMoE.make_expert_params_mapping(
                  ckpt_gate_proj_name="gate_proj",
-@@ -347,8 +343,10 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -306,8 +302,10 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
          )
  
          # Fused checkpoint tensors: experts.gate_up_proj / experts.down_proj.
@@ -120,7 +120,7 @@ index ff76c2cd3e..6e0cb77344 100644
          fused_expert_params_mapping = [
              ("experts.w13_weight", "experts.gate_up_proj", 0, "w1"),
              ("experts.w2_weight", "experts.down_proj", 0, "w2"),
-@@ -379,6 +377,9 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -338,6 +336,9 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
          loaded_params: set[str] = set()
  
          for name, loaded_weight in weights:
@@ -130,7 +130,7 @@ index ff76c2cd3e..6e0cb77344 100644
              # The last-stage MTP draft cannot share the target embedding on PP0.
              # Load the checkpoint embedding into its retained local copy instead
              # of leaving the torch.empty() allocation uninitialized.
-@@ -413,11 +414,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -372,11 +373,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
              if ".self_attn." in name:
                  name = name.replace(".self_attn", "")
  
@@ -143,7 +143,7 @@ index ff76c2cd3e..6e0cb77344 100644
                  # Map mlp.shared_expert.xx_proj to mlp.experts.{num_experts}.xx_proj
                  name = name.replace(
                      "mlp.shared_expert.",
-@@ -459,6 +456,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -418,6 +415,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
                  weight_loader = getattr(param, "weight_loader", default_weight_loader)
                  weight_loader(param, loaded_weight, shard_id)
                  name = name_mapped
@@ -151,7 +151,7 @@ index ff76c2cd3e..6e0cb77344 100644
                  break
              else:
                  # 2) Process MoE expert weights (including fused experts)
-@@ -500,6 +498,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -459,6 +457,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
                                  shard_id,
                                  num_experts,
                              )
@@ -159,7 +159,7 @@ index ff76c2cd3e..6e0cb77344 100644
                      else:
                          # Non-fused expert, load by expert_id/shard
                          if (
-@@ -518,6 +517,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -477,6 +476,7 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
                              shard_id=shard_id,
                              expert_id=expert_id,
                          )
@@ -167,7 +167,7 @@ index ff76c2cd3e..6e0cb77344 100644
                      name = name_mapped
                      break
                  else:
-@@ -535,12 +535,21 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
+@@ -494,12 +494,21 @@ class Qwen3_5ForCausalLMMTP(nn.Module):
                              param, "weight_loader", default_weight_loader
                          )
                          weight_loader(param, loaded_weight)
