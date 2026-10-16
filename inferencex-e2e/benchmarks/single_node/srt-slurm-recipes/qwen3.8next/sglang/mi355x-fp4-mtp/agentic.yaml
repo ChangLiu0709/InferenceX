@@ -66,10 +66,13 @@ base:
         # Outlast AIPerf's 300 s client connection pool.
         SGLANG_TIMEOUT_KEEP_ALIVE: '1800'
         SGLANG_ENABLE_SPEC_V2: '1'
-        # FlyDSL GDN causal conv1d prefill kernel (setup_script); opt-in. The FlyDSL
-        # GDN decode kernel (SGLANG_AITER_GDN_DECODE) stays off: sglang#41879
-        # measures it ahead of Triton only at low concurrency.
+        # Opt-in FlyDSL kernels from the patches: GDN causal conv1d, GDN decode and
+        # MTP verify, QSA paged decode, and the fused GDN chunked prefill.
         SGLANG_AITER_GDN_CONV: '1'
+        SGLANG_AITER_GDN_DECODE: '1'
+        SGLANG_AITER_QSA_PA_DECODE: '1'
+        SGLANG_AITER_GDN_PREFILL: '1'
+        SGLANG_AITER_GDN_PREFILL_H: fused
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
