@@ -20,7 +20,10 @@
 # All but the upstream PRs come from amd-nprotaso/{aiter,sglang} qwen_3_8_improvement.
 # Python only, so nothing is rebuilt. A patch that no longer applies fails the worker.
 set -euo pipefail
-patches="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/qwen3.8next-rocm10-patches"
+# srtctl only looks up setup_script here; the patches live with the single-node
+# recipe and are read through the workspace mount.
+patches=/infmax-workspace/benchmarks/single_node/srt-slurm-recipes/qwen3.8next/sglang/mi355x-fp4-mtp/patches
+[[ -d $patches ]] || { echo "qwen3.8next: $patches not found" >&2; exit 1; }
 # Later patches touch files of earlier ones, so a per-patch reverse check cannot
 # tell a re-run apart; the marker records the patch set a container already has.
 marker=/sgl-workspace/.qwen3.8next-rocm10-patches

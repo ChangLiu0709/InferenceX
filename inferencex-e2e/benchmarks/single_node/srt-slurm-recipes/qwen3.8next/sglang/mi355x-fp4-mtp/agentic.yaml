@@ -18,7 +18,8 @@ base:
   # Qwen3.8 AITER/FlyDSL kernels and SGLang dispatch (GDN conv/decode/prefill,
   # fused QK-norm/RoPE/gate, hc_mix, QSA paged decode, topk gating, ratio-3
   # packing) and exact-chunk-fill / shared-expert loading fixes, patched into
-  # the upstream ROCm 10 image.
+  # the upstream ROCm 10 image. The patch files are in patches/ next to this
+  # recipe.
   setup_script: qwen3.8next-rocm10-patches.sh
   roles:
     agg:
