@@ -4,9 +4,15 @@
 #   - ROCm/aiter#5992: FlyDSL causal conv1d prefill and GDN decode/verify
 #   - sgl-project/sglang#41879: opt-in SGLANG_AITER_GDN_CONV/_DECODE hooks
 #   - fused Triton QK Gemma-RMSNorm + M-RoPE + gate on HIP
-#   - FlyDSL hc_mix for the hyper-connection mix (SGLANG_AITER_HC_MIX, default
-#     on) and the single-kernel hc_combine on ROCm (SGLANG_HC_COMBINE_SPLIT=0)
-#   - opt-in FlyDSL paged decode for QSA attention (SGLANG_AITER_QSA_PA_DECODE)
+#   - FlyDSL hc_mix for the hyper-connection mix up to 128 rows (SGLANG_AITER_HC_MIX,
+#     default on) and the single-kernel hc_combine on ROCm (SGLANG_HC_COMBINE_SPLIT=0)
+#   - opt-in FlyDSL paged decode for QSA attention (SGLANG_AITER_QSA_PA_DECODE), on
+#     AITER mainline's planned pa_decode
+#   - fused FlyDSL QSA sparse decode that reads KV from the pool
+#     (SGLANG_ENABLE_QSA_FLYDSL_DECODE, default on, tried before the paged decode)
+#   - fused GDN decode projection + conv1d on HIP and off-by-default GDN prefill
+#     opt-ins (SGLANG_GDN_FUSED_QKV_NORM, _WIDE_QKV_SPLIT, _PACKED_QWEN4,
+#     _HIP_PREFILL_VIEWS)
 #   - opt-in AITER GDN chunked prefill (SGLANG_AITER_GDN_PREFILL; only
 #     SGLANG_AITER_GDN_PREFILL_H=fused works on this AITER)
 #   - AITER topk_gating for the 512-expert router (SGLANG_ROCM_USE_AITER_TOPK_GATING,
@@ -56,5 +62,9 @@ apply /sgl-workspace/sglang sglang-aiter-topk-gating.patch
 apply /sgl-workspace/sglang sglang-gdn-ratio3-packing.patch
 apply /sgl-workspace/sglang sglang-qsa-padded-group-mtp-shared-expert.patch
 apply /sgl-workspace/sglang sglang-prefill-chunk-qsa-alignment.patch
+apply /sgl-workspace/sglang sglang-qsa-flydsl-sparse-decode.patch
+apply /sgl-workspace/sglang sglang-gdn-hip-fused-proj-conv.patch
+apply /sgl-workspace/sglang sglang-qsa-pa-decode-mainline.patch
+apply /sgl-workspace/sglang sglang-flydsl-hc-mix-128-rows.patch
 
 echo "$digest" > "$marker"
