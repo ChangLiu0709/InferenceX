@@ -1,4 +1,4 @@
-From 50fa674920c9f14b2cf1198573998f34d489b4ed Mon Sep 17 00:00:00 2001
+From bc7ec8773267d485e562ad74862801698d58d5b4 Mon Sep 17 00:00:00 2001
 From: Nikolai Protasov <nprotaso@amd.com>
 Date: Mon, 19 Oct 2026 11:03:42 +0000
 Subject: [PATCH] [AMD][Qwen3.8] Serve FlyDSL hc_mix up to 128 rows
@@ -13,8 +13,8 @@ From amd-nprotaso/sglang qwen_3_8_improvement: 67750e35dc.
 ---
  python/sglang/srt/layers/hc_mix_flydsl.py     | 61 +++++++++++++------
  python/sglang/srt/layers/hyperconnection.py   | 25 +++++---
- .../kernels/ops/gemm/test_hc_mix_flydsl.py    | 52 ++++++++++++++--
- 3 files changed, 104 insertions(+), 34 deletions(-)
+ .../kernels/ops/gemm/test_hc_mix_flydsl.py    | 54 +++++++++++++---
+ 3 files changed, 105 insertions(+), 35 deletions(-)
 
 diff --git a/python/sglang/srt/layers/hc_mix_flydsl.py b/python/sglang/srt/layers/hc_mix_flydsl.py
 index f9ade5a8a0..a73320bf96 100644
@@ -160,7 +160,7 @@ index a2f73912a2..46cd17cd1d 100644
  
              down = self.input_mix_weight_down.weight
 diff --git a/test/registered/kernels/ops/gemm/test_hc_mix_flydsl.py b/test/registered/kernels/ops/gemm/test_hc_mix_flydsl.py
-index d7a6f94c90..806d1cda3e 100644
+index d7a6f94c90..89b8610dc8 100644
 --- a/test/registered/kernels/ops/gemm/test_hc_mix_flydsl.py
 +++ b/test/registered/kernels/ops/gemm/test_hc_mix_flydsl.py
 @@ -5,7 +5,10 @@ import pytest
@@ -184,8 +184,12 @@ index d7a6f94c90..806d1cda3e 100644
  
  
  def test_gated_residual_dispatch(monkeypatch):
-@@ -37,11 +40,12 @@ def test_gated_residual_dispatch(monkeypatch):
-             result, (_, normed) = layer.mix(x)
+@@ -34,14 +37,15 @@ def test_gated_residual_dispatch(monkeypatch):
+     x = torch.randn(4, 10240, device="cuda", dtype=torch.bfloat16)
+     with torch.no_grad():
+         with patch("aiter.ops.flydsl.hc_mix.hc_mix", wraps=hc_mix) as call:
+-            result, (_, normed) = layer.mix(x)
++            result, (_, normed, *_) = layer.mix(x)
              assert call.call_count == 1
          d, u = layer.input_mix_weight_down.weight, layer.input_mix_weight_up.weight
 +        assert layer._mix_flydsl_ok
@@ -233,7 +237,7 @@ index d7a6f94c90..806d1cda3e 100644
 +    x = torch.randn(rows, 10240, device="cuda", dtype=torch.bfloat16)
 +    with torch.no_grad():
 +        with patch("aiter.ops.flydsl.hc_mix.hc_mix", wraps=hc_mix) as call:
-+            result, (_, normed) = layer.mix(x)
++            result, (_, normed, *_) = layer.mix(x)
 +            assert call.call_count == 1
 +        d, u = layer.input_mix_weight_down.weight, layer.input_mix_weight_up.weight
 +        t = torch.nn.functional.silu(normed.float() @ d.float().T / 4).bfloat16()
