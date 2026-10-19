@@ -13,6 +13,12 @@
 #   - fused GDN decode projection + conv1d on HIP and off-by-default GDN prefill
 #     opt-ins (SGLANG_GDN_FUSED_QKV_NORM, _WIDE_QKV_SPLIT, _PACKED_QWEN4,
 #     _HIP_PREFILL_VIEWS)
+#   - tuned BF16 / A8W8 bpreshuffle GEMM tables for Qwen3.8 on gfx950 (AITER loads
+#     model_configs/ by default)
+#   - off-by-default decode optimizations: shared per-token FP8 attention input
+#     quant, fused GDN gated norm + out_proj quant, shared-expert gate folded into
+#     the router, BF16 lm_head through tgemm (SGLANG_OPT_QWEN4_SHARED_ATTN_QUANT,
+#     _QWEN4_FUSED_GDN_NORM_QUANT, _QWEN_MOE_FUSED_SHARED_TOPK, _AITER_LM_HEAD_GEMM)
 #   - opt-in AITER GDN chunked prefill (SGLANG_AITER_GDN_PREFILL; only
 #     SGLANG_AITER_GDN_PREFILL_H=fused works on this AITER)
 #   - AITER topk_gating for the 512-expert router (SGLANG_ROCM_USE_AITER_TOPK_GATING,
@@ -53,6 +59,7 @@ apply /sgl-workspace/aiter aiter-flydsl-hc-mix.patch
 apply /sgl-workspace/aiter aiter-flydsl-qsa-pa-decode.patch
 apply /sgl-workspace/aiter aiter-flydsl-gdn-fused-prefill.patch
 apply /sgl-workspace/aiter aiter-flydsl-gdn-decode-verify-perf.patch
+apply /sgl-workspace/aiter aiter-qwen38-tuned-gemm-tables.patch
 apply /sgl-workspace/sglang sglang-aiter-gdn-conv-decode-hooks.patch
 apply /sgl-workspace/sglang sglang-fused-qk-rope-gate-hip.patch
 apply /sgl-workspace/sglang sglang-flydsl-hc-mix.patch
@@ -66,5 +73,6 @@ apply /sgl-workspace/sglang sglang-qsa-flydsl-sparse-decode.patch
 apply /sgl-workspace/sglang sglang-gdn-hip-fused-proj-conv.patch
 apply /sgl-workspace/sglang sglang-qsa-pa-decode-mainline.patch
 apply /sgl-workspace/sglang sglang-flydsl-hc-mix-128-rows.patch
+apply /sgl-workspace/sglang sglang-qwen38-decode-opts.patch
 
 echo "$digest" > "$marker"
