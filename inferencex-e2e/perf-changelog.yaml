@@ -10208,3 +10208,11 @@
     - "Enable 120 GB per-rank HiCache for Muse Spark Open GB300 at concurrency 8, 10, 12, 16, 20, 24, and 32; retain GPU-only KV at concurrency 1, 2, 3, 4, and 6."
     - "Record DRAM HiCache offload with 0.80 DRAM utilization for the high-concurrency points; preserve the image, full AgentX corpus, and other serving settings."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4317
+
+- config-keys:
+    - qwen3.5-fp8-h200-sglang-agentic-hicache-mtp
+  scenario-type:
+    - agentic-coding
+  description:
+    - "Add TP4/EP4 DRAM HiCache MTP points at concurrency 8 and 12 for Qwen3.5-397B FP8 on H200 with SGLang."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4209
