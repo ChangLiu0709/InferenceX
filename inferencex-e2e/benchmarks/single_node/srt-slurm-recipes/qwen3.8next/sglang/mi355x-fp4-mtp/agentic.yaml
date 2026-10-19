@@ -55,6 +55,10 @@ base:
         speculative-num-steps: 3
         speculative-eagle-topk: 1
         speculative-num-draft-tokens: 4
+        # GDN target verify folds each commit through a raw-input window instead
+        # of per-draft state snapshots; needs the linear draft chain (topk 1).
+        enable-linear-replayssm-spec: true
+        tokenizer-worker-num: 6
         enable-metrics: true
         enable-cache-report: true
       env:
@@ -73,6 +77,14 @@ base:
         SGLANG_AITER_QSA_PA_DECODE: '1'
         SGLANG_AITER_GDN_PREFILL: '1'
         SGLANG_AITER_GDN_PREFILL_H: fused
+        AITER_GDR_FLYDSL: '1'
+        # Decode optimizations from the patches: shared per-token FP8 attention
+        # input quant, fused GDN gated norm + out_proj quant, shared-expert gate
+        # folded into the router, and the BF16 lm_head through tgemm.
+        SGLANG_OPT_QWEN4_SHARED_ATTN_QUANT: '1'
+        SGLANG_OPT_QWEN4_FUSED_GDN_NORM_QUANT: '1'
+        SGLANG_OPT_QWEN_MOE_FUSED_SHARED_TOPK: '1'
+        SGLANG_OPT_AITER_LM_HEAD_GEMM: '1'
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'

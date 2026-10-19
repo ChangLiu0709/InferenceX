@@ -15,6 +15,9 @@
 #     _HIP_PREFILL_VIEWS)
 #   - tuned BF16 / A8W8 bpreshuffle GEMM tables for Qwen3.8 on gfx950 (AITER loads
 #     model_configs/ by default)
+#   - ROCm/aiter#5392: sigmoid gate for the fused gated RMSNorm + FP8 per-token
+#     quant, which SGLANG_OPT_QWEN4_FUSED_GDN_NORM_QUANT needs for Qwen3.8's
+#     sigmoid output gate
 #   - off-by-default decode optimizations: shared per-token FP8 attention input
 #     quant, fused GDN gated norm + out_proj quant, shared-expert gate folded into
 #     the router, BF16 lm_head through tgemm (SGLANG_OPT_QWEN4_SHARED_ATTN_QUANT,
@@ -30,7 +33,8 @@
 #     prefixes use the absolute mamba checkpoint grid
 #   - fused shared-expert loading for Qwen3.8, strict for the MTP draft
 # All but the upstream PRs come from amd-nprotaso/{aiter,sglang} qwen_3_8_improvement.
-# Python only, so nothing is rebuilt. A patch that no longer applies fails the worker.
+# All Python except aiter#5392, whose prebuilt module is removed so AITER's JIT
+# rebuilds it (~10 s) on first use. A patch that no longer applies fails the worker.
 set -euo pipefail
 # srtctl only looks up setup_script here; the patches live with the single-node
 # recipe and are read through the workspace mount.
@@ -60,6 +64,9 @@ apply /sgl-workspace/aiter aiter-flydsl-qsa-pa-decode.patch
 apply /sgl-workspace/aiter aiter-flydsl-gdn-fused-prefill.patch
 apply /sgl-workspace/aiter aiter-flydsl-gdn-decode-verify-perf.patch
 apply /sgl-workspace/aiter aiter-qwen38-tuned-gemm-tables.patch
+apply /sgl-workspace/aiter aiter-gated-rmsnorm-sigmoid.patch
+rm -rf /sgl-workspace/aiter/aiter/jit/module_gated_rmsnorm_quant.so \
+    /sgl-workspace/aiter/aiter/jit/build/module_gated_rmsnorm_quant
 apply /sgl-workspace/sglang sglang-aiter-gdn-conv-decode-hooks.patch
 apply /sgl-workspace/sglang sglang-fused-qk-rope-gate-hip.patch
 apply /sgl-workspace/sglang sglang-flydsl-hc-mix.patch
