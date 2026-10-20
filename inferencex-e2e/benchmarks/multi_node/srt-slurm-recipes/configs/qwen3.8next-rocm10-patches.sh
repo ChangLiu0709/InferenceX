@@ -30,6 +30,9 @@
 #     prefixes use the absolute mamba checkpoint grid
 #   - fused shared-expert loading for Qwen3.8, strict for the MTP draft
 #   - an all-floating-point MTP branch loads unquantized under a Quark target
+#   - opt-in FlyDSL monokernel for MTP target verify and draft of up to 8 requests
+#     (SGLANG_ENABLE_QWEN4_MONOKERNEL, _MTP_MONOKERNEL); verify needs the per-draft
+#     intermediate SSM states, which --enable-linear-replayssm-spec drops
 #   - fused decode MoE route-sort + MXFP4 activation quant (ROCm/aiter#6165, #6467),
 #     instantiated for Qwen3.8-Flash-Next's 513 experts / top-11 / hidden 2560
 #   - ROCm/aiter#6225, #5804 and #6050, which the branch's fused_moe.py carries
@@ -83,5 +86,6 @@ apply /sgl-workspace/sglang sglang-qsa-pa-decode-mainline.patch
 apply /sgl-workspace/sglang sglang-flydsl-hc-mix-128-rows.patch
 apply /sgl-workspace/sglang sglang-qwen38-decode-opts.patch
 apply /sgl-workspace/sglang sglang-mtp-quant-resolve.patch
+apply /sgl-workspace/sglang sglang-qwen38-monokernel.patch
 
 echo "$digest" > "$marker"

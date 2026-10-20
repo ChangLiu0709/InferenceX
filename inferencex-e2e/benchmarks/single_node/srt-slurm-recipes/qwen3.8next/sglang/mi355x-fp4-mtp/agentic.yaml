@@ -55,9 +55,6 @@ base:
         speculative-num-steps: 3
         speculative-eagle-topk: 1
         speculative-num-draft-tokens: 4
-        # GDN target verify folds each commit through a raw-input window instead
-        # of per-draft state snapshots; needs the linear draft chain (topk 1).
-        enable-linear-replayssm-spec: true
         tokenizer-worker-num: 6
         enable-metrics: true
         enable-cache-report: true
@@ -85,6 +82,11 @@ base:
         SGLANG_OPT_QWEN4_FUSED_GDN_NORM_QUANT: '1'
         SGLANG_OPT_QWEN_MOE_FUSED_SHARED_TOPK: '1'
         SGLANG_OPT_AITER_LM_HEAD_GEMM: '1'
+        # FlyDSL monokernel for MTP target verify and draft of up to 8 requests.
+        # Verify writes the per-draft intermediate SSM states, so this excludes
+        # --enable-linear-replayssm-spec.
+        SGLANG_ENABLE_QWEN4_MONOKERNEL: '1'
+        SGLANG_ENABLE_QWEN4_MTP_MONOKERNEL: '1'
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
