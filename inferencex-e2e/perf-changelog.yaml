@@ -10339,3 +10339,9 @@
   description:
     - "Update SGLang image from v0.5.15.post1-cu130 to v0.5.21-cu130 and rename cuda-graph-max-bs to cuda-graph-max-bs-decode."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3847
+
+- config-keys:
+    - dsr1-fp8-b300-sglang
+  description:
+    - "Update SGLang image from v0.5.12-cu130 to v0.5.21-cu130 and rename cuda-graph-max-bs to cuda-graph-max-bs-decode."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3862
