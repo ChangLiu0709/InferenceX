@@ -90,11 +90,12 @@ base:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
       AIPERF_APPLY_CHAT_TEMPLATE: 'true'
 
-# One variant per point. c1, c2 and c4 run the FlyDSL monokernel for MTP target
-# verify and draft (up to 8 requests): its verify writes the per-draft
+# One variant per point. c1, c2, c4 and c8 run the FlyDSL monokernel for MTP
+# target verify and draft (up to 8 requests): its verify writes the per-draft
 # intermediate SSM states, so ReplaySSM is off, admission equals the decode graph
 # batch, and mem-fraction-static is used as given instead of the aiter backend's
-# 0.85 scaling. c8 and up keep ReplaySSM, 2x CONC admission and the default path.
+# 0.85 scaling. c8 drafts one token per step (2 verify tokens). c12 and c16 keep
+# ReplaySSM, 2x CONC admission and the default path.
 override_c1:
   roles:
     agg:
@@ -147,8 +148,15 @@ override_c8:
   roles:
     agg:
       args:
-        max-running-requests: 16
+        enable-linear-replayssm-spec: null
+        max-running-requests: 8
         cuda-graph-max-bs-decode: 8
+        speculative-num-steps: 1
+        speculative-num-draft-tokens: 2
+      env:
+        SGLANG_ENABLE_QWEN4_MONOKERNEL: '1'
+        SGLANG_ENABLE_QWEN4_MTP_MONOKERNEL: '1'
+        SGLANG_AITER_HONOR_EXPLICIT_MEM_FRACTION: '1'
   benchmark:
     env:
       CONC: '8'
