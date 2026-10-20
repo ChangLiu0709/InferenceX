@@ -10381,3 +10381,9 @@
   description:
     - "Bump SGLang image to v0.5.21-cu130 and rename --cuda-graph-max-bs to --cuda-graph-max-bs-decode."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4214
+
+- config-keys:
+    - dsr1-fp4-mi355x-sglang-mtp
+  description:
+    - "Update SGLang image from v0.5.12-rocm700-mi35x to v0.5.22-rocm720-mi35x and rename cuda-graph-max-bs to its decode flag."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4229
