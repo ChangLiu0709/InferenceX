@@ -95,7 +95,9 @@ base:
 # intermediate SSM states, so ReplaySSM is off, admission equals the decode graph
 # batch, and mem-fraction-static is used as given instead of the aiter backend's
 # 0.85 scaling. c8 drafts one token per step (2 verify tokens). c12 and c16 keep
-# ReplaySSM, 2x CONC admission and the default path.
+# ReplaySSM, 2x CONC admission and the default path. c16 captures decode graphs
+# up to its admission, so bursts past CONC stay in a graph, and folds the HC norm
+# and inject GEMV into the FlyDSL HC mix (SGLANG_OPT_QWEN4_FUSED_HC).
 override_c1:
   roles:
     agg:
@@ -178,7 +180,9 @@ override_c16:
     agg:
       args:
         max-running-requests: 32
-        cuda-graph-max-bs-decode: 16
+        cuda-graph-max-bs-decode: 32
+      env:
+        SGLANG_OPT_QWEN4_FUSED_HC: '1'
   benchmark:
     env:
       CONC: '16'
