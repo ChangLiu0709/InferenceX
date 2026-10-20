@@ -10387,3 +10387,9 @@
   description:
     - "Update SGLang image from v0.5.12-rocm700-mi35x to v0.5.22-rocm720-mi35x and rename cuda-graph-max-bs to its decode flag."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4229
+
+- config-keys:
+    - qwen3.5-fp4-b300-sglang-mtp
+  description:
+    - "Update SGLang image to v0.5.22-cu130 and rename two removed deprecated server flags."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4240
