@@ -10470,3 +10470,9 @@
   description:
     - "Update SGLang image from nightly-dev-cu13-20260918-20518d85 to v0.5.22-cu130"
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4168
+
+- config-keys:
+    - dsr1-fp8-h200-sglang-mtp
+  description:
+    - "Update SGLang image to v0.5.22-cu130 and rename --cuda-graph-max-bs to --cuda-graph-max-bs-decode"
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4256
