@@ -10321,3 +10321,9 @@
     - "Place the B300 Dynamo + vLLM AgentX frontend on the allocation head for eval-only jobs."
     - "Capture DSpark step sizes at multiples of five and six through 40 for aggregated TP4 concurrency 1."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4231
+
+- config-keys:
+    - qwen3.5-fp4-b200-sglang
+  description:
+    - "Update SGLang image from v0.5.19-cu130 to v0.5.21-cu130 and rename cuda-graph-max-bs to cuda-graph-max-bs-decode."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3813
