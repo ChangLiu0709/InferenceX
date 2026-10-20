@@ -10434,3 +10434,9 @@
     - "Results reuse run 39207089292, which measured these points before #4336 with default decode worker selection and 80 GiB of CPU KV offload per prefill rank."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4266
   append-only: true
+
+- config-keys:
+    - qwen3.5-fp8-gb200-dynamo-sglang-mtp
+  description:
+    - "Update SGLang image to v0.5.21-cu130 and rename the TP memory-imbalance check env to its new enable form."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3672
