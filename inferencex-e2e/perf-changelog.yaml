@@ -10351,3 +10351,9 @@
   description:
     - "Update SGLang image from v0.5.12-cu130 to v0.5.21-cu130 and rename cuda-graph-max-bs to cuda-graph-max-bs-decode."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3868
+
+- config-keys:
+    - qwen3.5-fp8-mi355x-atom-mtp
+  description:
+    - "Update ATOM to v0.1.7 (rocm/atom-dev:nightly_202610080328) and keep prefix caching disabled as in the old image."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3918
