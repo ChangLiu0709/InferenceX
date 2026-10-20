@@ -85,6 +85,9 @@ base:
         SGLANG_OPT_QWEN4_FUSED_GDN_NORM_QUANT: '1'
         SGLANG_OPT_QWEN_MOE_FUSED_SHARED_TOPK: '1'
         SGLANG_OPT_AITER_LM_HEAD_GEMM: '1'
+        # HC norm and inject GEMV folded into the FlyDSL HC mix for <= 128 rows
+        # (forwards outside the monokernel).
+        SGLANG_OPT_QWEN4_FUSED_HC: '1'
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
@@ -96,8 +99,7 @@ base:
 # batch, and mem-fraction-static is used as given instead of the aiter backend's
 # 0.85 scaling. c8 drafts one token per step (2 verify tokens). c12 and c16 keep
 # ReplaySSM, 2x CONC admission and the default path. c16 captures decode graphs
-# up to its admission, so bursts past CONC stay in a graph, and folds the HC norm
-# and inject GEMV into the FlyDSL HC mix (SGLANG_OPT_QWEN4_FUSED_HC).
+# up to its admission, so bursts past CONC stay in a graph.
 override_c1:
   roles:
     agg:
@@ -181,8 +183,6 @@ override_c16:
       args:
         max-running-requests: 32
         cuda-graph-max-bs-decode: 32
-      env:
-        SGLANG_OPT_QWEN4_FUSED_HC: '1'
   benchmark:
     env:
       CONC: '16'
