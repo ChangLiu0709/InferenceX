@@ -87,17 +87,20 @@ base:
         # --enable-linear-replayssm-spec.
         SGLANG_ENABLE_QWEN4_MONOKERNEL: '1'
         SGLANG_ENABLE_QWEN4_MTP_MONOKERNEL: '1'
+        # Keep --mem-fraction-static as given; the aiter backend otherwise scales
+        # it by 0.85 for contexts over 8192.
+        SGLANG_AITER_HONOR_EXPLICIT_MEM_FRACTION: '1'
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
       AIPERF_APPLY_CHAT_TEMPLATE: 'true'
 
-# One variant per point. Admission is 2x CONC and the decode graph batch is CONC.
+# One variant per point. Admission and the decode graph batch are both CONC.
 override_c1:
   roles:
     agg:
       args:
-        max-running-requests: 2
+        max-running-requests: 1
         cuda-graph-max-bs-decode: 1
   benchmark:
     env:
@@ -108,7 +111,7 @@ override_c4:
   roles:
     agg:
       args:
-        max-running-requests: 8
+        max-running-requests: 4
         cuda-graph-max-bs-decode: 4
   benchmark:
     env:
@@ -119,7 +122,7 @@ override_c8:
   roles:
     agg:
       args:
-        max-running-requests: 16
+        max-running-requests: 8
         cuda-graph-max-bs-decode: 8
   benchmark:
     env:
@@ -130,7 +133,7 @@ override_c12:
   roles:
     agg:
       args:
-        max-running-requests: 24
+        max-running-requests: 12
         cuda-graph-max-bs-decode: 12
   benchmark:
     env:
@@ -141,7 +144,7 @@ override_c16:
   roles:
     agg:
       args:
-        max-running-requests: 32
+        max-running-requests: 16
         cuda-graph-max-bs-decode: 16
   benchmark:
     env:
