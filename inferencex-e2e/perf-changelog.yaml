@@ -10551,3 +10551,9 @@
   description:
     - "Update the SGLang image from nightly-dev-20260916-c9a8fba9 to v0.5.21-cu130."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4196
+
+- config-keys:
+    - dsv41flash-fp4-h100-vllm-agentic-dspark
+  description:
+    - "Update the vLLM image from nightly-cd10ed6f to the digest-pinned nightly-49cb2bbf"
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4198
