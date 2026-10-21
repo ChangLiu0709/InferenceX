@@ -1,7 +1,7 @@
 # Qwen3.8-Flash-Next Quark MXFP4 MoE (MTP experts included), FP8 attention and
 # FP8 PLE, AgentX on MI355X via SGLang with native NEXTN MTP. The ~116 GiB
-# checkpoint fits on one MI355X, so TP1. Only merged upstream PRs and the
-# monokernel are patched into the image.
+# checkpoint fits on one MI355X, so TP1. Merged upstream PRs, the monokernel and
+# the hc_mix, GEMM table, QSA and GDN decode PRs are patched into the image.
 base:
   schema: 2
   name: qwen3.8next-fp4-mi355x-sglang-agentic
@@ -71,6 +71,11 @@ base:
         SGLANG_TIMEOUT_KEEP_ALIVE: '1800'
         SGLANG_ENABLE_SPEC_V2: '1'
         AITER_GDR_FLYDSL: '1'
+        # FlyDSL GDN prefill conv and decode/verify (aiter#5992, sglang#41879).
+        SGLANG_AITER_GDN_CONV: '1'
+        SGLANG_AITER_GDN_DECODE: '1'
+        # Fused FlyDSL QSA sparse decode (aiter#6670, sglang#45196); on by default.
+        SGLANG_ENABLE_QSA_FLYDSL_DECODE: '1'
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'

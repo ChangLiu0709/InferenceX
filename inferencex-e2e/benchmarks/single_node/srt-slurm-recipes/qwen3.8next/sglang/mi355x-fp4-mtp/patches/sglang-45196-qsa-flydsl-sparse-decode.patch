@@ -1,0 +1,442 @@
+sgl-project/sglang#45196 (open), head 71e6ff5001: [Perf][AMD] Qwen3.8: Serve QSA decode with AITER's fused FlyDSL sparse decode on gfx950
+gh pr diff 45196
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index c1bdf79f565f..ba0e643393a1 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -887,6 +887,11 @@ class Envs:
+     # insertion. Requires an AITER build with the fp8_e4m3_unit cache contract.
+     # Enabled by default for supported configurations; set to 0 to disable.
+     SGLANG_M3_USE_AITER_FUSED_QKNORM = EnvBool(True)
++    # Serve QSA decode/verify on gfx950 with AITER's fused FlyDSL kernel
++    # (aiter.ops.flydsl.qsa_sparse_decode): it reads the selected KV straight
++    # from the pool (no gather pass) and splits each row across CTAs, where the
++    # Triton fallback runs one program per (row, kv head). Other GPUs ignore it.
++    SGLANG_ENABLE_QSA_FLYDSL_DECODE = EnvBool(True)
+     SGLANG_USE_AITER_AG = EnvBool(True)
+     # Use reduce_scatter (instead of all_reduce + dp_scatter) for the equal-chunk
+     # MAX_LEN DP-MoE combine. Default ON for ROCm/HIP (uses the aiter custom
+diff --git a/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py b/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
+index 31db21423fc5..72ec30834fef 100644
+--- a/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
++++ b/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
+@@ -16,6 +16,7 @@
+ import torch
+ import torch.nn.functional as F
+ 
++from sglang.srt.environ import envs
+ from sglang.srt.layers.attention.base_attn_backend import AttentionBackend
+ from sglang.srt.layers.attention.qsa.config import (
+     is_qwen_qsa,
+@@ -79,6 +80,22 @@ def _resolve_trtllm_sparse_decode():
+     return trtllm_batch_decode_with_kv_cache
+ 
+ 
++@lru_cache(maxsize=1)
++def _resolve_flydsl_sparse_decode():
++    """The fused gfx950 FlyDSL decode module, or None when off or unavailable."""
++    if not (is_hip() and envs.SGLANG_ENABLE_QSA_FLYDSL_DECODE.get()):
++        return None
++    try:
++        from aiter.ops.flydsl import qsa_sparse_decode as qsa_flydsl
++    except ImportError:
++        logger.warning(
++            "QSA FlyDSL decode requested but aiter.ops.flydsl.qsa_sparse_decode "
++            "is unavailable"
++        )
++        return None
++    return qsa_flydsl
++
++
+ @lru_cache(maxsize=1)
+ def _resolve_flash_attn_varlen_func():
+     from sglang.srt.utils import is_hip, is_sm121
+@@ -253,6 +270,7 @@ def __init__(self, runner=None) -> None:
+         self._mtp_shared_sparse_indices = None
+         self._trtllm_workspace = None
+         self._trtllm_counters = {}
++        self._flydsl_decode_workspace = None
+         self._graph_extend_lens = None
+         self._graph_extend_lens_pin = None
+         self._verify_mask = None
+@@ -1814,6 +1832,75 @@ def _forward_trtllm_sparse(
+         )
+         return output.reshape(q.shape[0], -1)
+ 
++    def _forward_flydsl_fused_sparse(
++        self,
++        flydsl_decode,
++        q: torch.Tensor,
++        k_buffer: torch.Tensor,
++        v_buffer: torch.Tensor,
++        layer,
++        forward_batch,
++        metadata,
++        topk_indices: torch.Tensor,
++    ) -> torch.Tensor:
++        """gfx950 sparse decode straight from the pool: no gather, KV split across CTAs.
++
++        Each query row is its own length-one sequence, so speculative verify rows
++        need nothing extra.
++        """
++        batch, topk = topk_indices.shape
++        num_kv_heads = k_buffer.shape[1]
++        num_splits = flydsl_decode.recommended_num_splits(
++            batch, num_kv_heads, topk, q.device
++        )
++        workspace = self._get_flydsl_decode_workspace(
++            flydsl_decode,
++            batch * q.shape[1] * num_splits,
++            q.shape[1],
++            num_kv_heads,
++            k_buffer.shape[2],
++            topk,
++            q.device,
++        )
++        output = flydsl_decode.flydsl_qsa_sparse_decode(
++            q.contiguous(),
++            k_buffer,
++            v_buffer,
++            self.req_to_token_pool.req_to_token,
++            (
++                metadata.row_req_pool_indices
++                if metadata.row_req_pool_indices is not None
++                else forward_batch.req_pool_indices
++            ),
++            topk_indices,
++            metadata.sequence_lengths,
++            layer.scaling,
++            num_splits=num_splits,
++            workspace=workspace,
++        )
++        return output.reshape(q.shape[0], -1)
++
++    def _get_flydsl_decode_workspace(
++        self, flydsl_decode, partials, num_q_heads, num_kv_heads, head_dim, topk, device
++    ):
++        # Sized once for every captured batch: graphs keep raw pointers to it, so
++        # it is never reallocated. A larger eager batch gets a per-call workspace.
++        if self._flydsl_decode_workspace is None:
++            capacity = max(
++                partials,
++                flydsl_decode.workspace_partials(
++                    self._cuda_graph_max_tokens, num_q_heads, num_kv_heads, topk, device
++                ),
++            )
++            self._flydsl_decode_workspace = (
++                torch.empty(capacity, dtype=torch.float32, device=device),
++                torch.empty(capacity, dtype=torch.float32, device=device),
++                torch.empty(capacity * head_dim, dtype=torch.float32, device=device),
++            )
++        if self._flydsl_decode_workspace[0].numel() < partials:
++            return None
++        return self._flydsl_decode_workspace
++
+     def forward_decode(
+         self,
+         q: torch.Tensor,
+@@ -1870,6 +1957,21 @@ def _forward_paged_attention(
+                 trtllm_decode,
+             )
+ 
++        flydsl_decode = _resolve_flydsl_sparse_decode()
++        if flydsl_decode is not None and flydsl_decode.can_use_flydsl_qsa_sparse_decode(
++            q, k_buffer, v_buffer
++        ):
++            return self._forward_flydsl_fused_sparse(
++                flydsl_decode,
++                q,
++                k_buffer,
++                v_buffer,
++                layer,
++                forward_batch,
++                metadata,
++                topk_indices,
++            )
++
+         batch, topk = topk_indices.shape
+         sequence_lens = metadata.sequence_lengths
+         if metadata.is_cuda_graph:
+diff --git a/test/registered/kernels/benchmark/attention/bench_qsa_sparse_decode.py b/test/registered/kernels/benchmark/attention/bench_qsa_sparse_decode.py
+new file mode 100644
+index 000000000000..a2b308e98d58
+--- /dev/null
++++ b/test/registered/kernels/benchmark/attention/bench_qsa_sparse_decode.py
+@@ -0,0 +1,146 @@
++"""Benchmark: QSA sparse decode attention on gfx950.
++
++``fused_flydsl`` (``aiter.ops.flydsl.qsa_sparse_decode``) reads the selected KV
++straight from the pool and splits each row across CTAs. ``gather_triton`` is the ROCm path it replaces in
++``QwenSparseAttnBackend._forward_paged_attention``: a Triton gather into packed
++scratch, then ``sparse_gqa_packed_decode_triton`` with one program per row and
++KV head.
++
++Cold cache: each captured call reads a different random slice of a pool that is
++several times larger than MI355X's 256 MB last-level cache.
++"""
++
++import itertools
++
++import torch
++
++from sglang.kernels.jit.benchmark import marker
++from sglang.test.ci.ci_register import register_amd_ci
++
++register_amd_ci(est_time=120, stage="jit-kernel-benchmark", runner_config="amd")
++
++DIM = 256
++TOPK = 2051  # Qwen3.8-Flash-Next: 512 compressed blocks x ratio 4 + 3
++MAX_CTX = 8192
++POOL_SLOTS = 1 << 21  # 2 GiB of bf16 K+V at Hkv=2
++# Touch at least 4x the last-level cache across the rotated calls.
++COLD_BYTES = 4 << 30
++
++
++def _fused_flydsl(q, k, v, req_to_token, row_req, indices, seq_lens, splits, ws):
++    from aiter.ops.flydsl.qsa_sparse_decode import flydsl_qsa_sparse_decode
++
++    return flydsl_qsa_sparse_decode(
++        q,
++        k,
++        v,
++        req_to_token,
++        row_req,
++        indices,
++        seq_lens,
++        DIM**-0.5,
++        num_splits=splits,
++        workspace=ws,
++    )
++
++
++def _gather_triton(q, k, v, req_to_token, row_req, indices, seq_lens, splits, ws):
++    from sglang.srt.layers.attention.qsa.sparse_attn import (
++        qwen_sparse_fa2_cu_seqlens_triton,
++        qwen_sparse_kv_extraction_compact_triton,
++        sparse_gqa_packed_decode_triton,
++    )
++
++    batch, topk = indices.shape
++    counts = torch.empty(batch, dtype=torch.int32, device=q.device)
++    cu_k = torch.empty(batch + 1, dtype=torch.int32, device=q.device)
++    qwen_sparse_fa2_cu_seqlens_triton(seq_lens, indices, counts, cu_k, batch, topk)
++    packed_k = torch.empty(
++        batch * topk, k.shape[1], DIM, dtype=q.dtype, device=q.device
++    )
++    packed_v = torch.empty_like(packed_k)
++    qwen_sparse_kv_extraction_compact_triton(
++        k,
++        v,
++        req_to_token,
++        row_req,
++        indices,
++        seq_lens,
++        cu_k,
++        packed_k,
++        packed_v,
++        batch,
++        topk,
++    )
++    relative = torch.arange(topk, dtype=torch.int32, device=q.device).expand(batch, -1)
++    relative = relative.masked_fill(relative >= counts[:, None], -1).contiguous()
++    cu_q = torch.arange(batch + 1, dtype=torch.int32, device=q.device)
++    return sparse_gqa_packed_decode_triton(
++        q, packed_k, packed_v, relative, cu_q, cu_k, counts, DIM**-0.5
++    )
++
++
++FN_MAP = {"fused_flydsl": _fused_flydsl, "gather_triton": _gather_triton}
++
++
++@marker.parametrize(
++    "num_kv_heads,group", [(2, 12), (1, 3)], [(2, 12)]
++)  # TP1 and the cookbook's TP8 per-rank shape
++@marker.parametrize("batch", [1, 4, 16, 64, 128], [1, 64])
++@marker.benchmark("impl", ["fused_flydsl", "gather_triton"])
++def benchmark(num_kv_heads: int, group: int, batch: int, impl: str):
++    from aiter.ops.flydsl.qsa_sparse_decode import recommended_num_splits
++
++    gen = torch.Generator(device="cuda").manual_seed(0)
++    q = torch.randn(batch, num_kv_heads * group, DIM, generator=gen, device="cuda")
++    q = q.bfloat16()
++    k = torch.randn(POOL_SLOTS, num_kv_heads, DIM, generator=gen, device="cuda")
++    k = k.bfloat16()
++    v = torch.randn_like(k)
++    touched = batch * num_kv_heads * TOPK * DIM * 2 * 2
++    rotations = max(2, min(256, -(-COLD_BYTES // touched)))
++    req_to_token = torch.randint(
++        1,
++        POOL_SLOTS,
++        (rotations * batch, MAX_CTX),
++        generator=gen,
++        device="cuda",
++        dtype=torch.int32,
++    )
++    # Each rotation maps the same positions through different requests' slots.
++    row_reqs = [
++        torch.arange(r * batch, (r + 1) * batch, device="cuda")
++        for r in range(rotations)
++    ]
++    seq_lens = torch.full((batch,), MAX_CTX, dtype=torch.int32, device="cuda")
++    indices = torch.stack(
++        [
++            torch.randperm(MAX_CTX, generator=gen, device="cuda")[:TOPK].sort().values
++            for _ in range(batch)
++        ]
++    ).int()
++    splits = recommended_num_splits(batch, num_kv_heads, TOPK, q.device)
++    partials = batch * num_kv_heads * group * splits
++    workspace = (
++        torch.empty(partials, device="cuda"),
++        torch.empty(partials, device="cuda"),
++        torch.empty(partials * DIM, device="cuda"),
++    )
++    fn = FN_MAP[impl]
++    rotation = itertools.cycle(row_reqs)
++
++    def call():
++        row_req = next(rotation)
++        return fn(q, k, v, req_to_token, row_req, indices, seq_lens, splits, workspace)
++
++    return marker.do_bench(
++        call,
++        graph_clone_args=None,
++        memory_args=None,
++        memory_output=None,
++        extra_memory_footprint=touched,
++    )
++
++
++if __name__ == "__main__":
++    benchmark.run()
+diff --git a/test/registered/kernels/ops/attention/qsa/test_qsa_flydsl_decode.py b/test/registered/kernels/ops/attention/qsa/test_qsa_flydsl_decode.py
+new file mode 100644
+index 000000000000..5c4903d5d853
+--- /dev/null
++++ b/test/registered/kernels/ops/attention/qsa/test_qsa_flydsl_decode.py
+@@ -0,0 +1,125 @@
++"""QwenSparseAttnBackend wiring of AITER's fused FlyDSL QSA sparse decode (gfx950).
++
++Kernel correctness is covered in AITER
++(``op_tests/test_flydsl_qsa_sparse_decode.py``); this checks that the
++backend hands the kernel the same operands as the Triton fallback.
++"""
++
++from __future__ import annotations
++
++from types import SimpleNamespace
++
++import pytest
++import torch
++
++pytest.importorskip("flydsl")
++qsa_flydsl = pytest.importorskip("aiter.ops.flydsl.qsa_sparse_decode")
++
++from sglang.test.ci.ci_register import register_amd_ci
++
++register_amd_ci(est_time=60, suite="stage-b-test-1-gpu-small-amd-mi35x")
++
++
++def _gfx950_available() -> bool:
++    if not torch.cuda.is_available() or torch.version.hip is None:
++        return False
++    probe = torch.empty(1, 1, 256, dtype=torch.bfloat16, device="cuda")
++    return qsa_flydsl.can_use_flydsl_qsa_sparse_decode(probe, probe, probe)
++
++
++pytestmark = pytest.mark.skipif(
++    not _gfx950_available(), reason="gfx950 FlyDSL required"
++)
++
++_DIM = 256
++# Qwen3.8-Flash-Next: 512 compressed blocks x ratio 4 + 3.
++_TOPK = 2051
++_MAX_CTX = 8192
++
++
++def _make_inputs(rows, num_kv_heads, group, num_slots=40000, seed=0):
++    """Random decode batch: sorted valid prefixes of varying length, then ``-1``
++    padding and one masked entry at ``seq_len``; row 0 selects nothing."""
++    gen = torch.Generator(device="cuda").manual_seed(seed)
++    q = torch.randn(rows, num_kv_heads * group, _DIM, generator=gen, device="cuda")
++    k = torch.randn(num_slots, num_kv_heads, _DIM, generator=gen, device="cuda")
++    v = torch.randn(num_slots, num_kv_heads, _DIM, generator=gen, device="cuda")
++    req_to_token = torch.randint(
++        1,
++        num_slots,
++        (rows + 4, _MAX_CTX),
++        generator=gen,
++        device="cuda",
++        dtype=torch.int32,
++    )
++    row_req = torch.randperm(rows + 4, generator=gen, device="cuda")[:rows]
++    seq_lens = torch.randint(
++        _TOPK // 2, _MAX_CTX, (rows,), generator=gen, device="cuda", dtype=torch.int32
++    )
++    indices = torch.full((rows, _TOPK), -1, dtype=torch.int32, device="cuda")
++    for r in range(rows):
++        seq_len = int(seq_lens[r])
++        count = 0 if (r == 0 and rows > 1) else (r * 977) % _TOPK + 1
++        count = min(count, seq_len)
++        picked = torch.randperm(seq_len, generator=gen, device="cuda")[:count]
++        indices[r, :count] = picked.sort().values.int()
++        if count < _TOPK:
++            indices[r, count] = seq_len
++    return (
++        q.bfloat16(),
++        k.bfloat16(),
++        v.bfloat16(),
++        req_to_token,
++        row_req,
++        indices,
++        seq_lens,
++    )
++
++
++def test_backend_decode_matches_triton_fallback(monkeypatch):
++    """The backend must hand the kernel the same rows, lengths and request map
++    the Triton fallback uses, including requests resolved per row."""
++    from sglang.srt.environ import envs
++    from sglang.srt.layers.attention import qwen_sparse_attn_backend as qsa_module
++
++    rows, num_kv_heads, group = 6, 2, 12
++    q, k, v, req_to_token, row_req, indices, seq_lens = _make_inputs(
++        rows, num_kv_heads, group
++    )
++    backend = qsa_module.QwenSparseAttnBackend.__new__(qsa_module.QwenSparseAttnBackend)
++    backend.token_to_kv_pool = SimpleNamespace(
++        get_key_buffer=lambda layer_id: k, get_value_buffer=lambda layer_id: v
++    )
++    backend.req_to_token_pool = SimpleNamespace(req_to_token=req_to_token)
++    backend.qsa_profile = None
++    backend._cuda_graph_max_tokens = 0
++    backend._fa2_scratch = {}
++    backend._flydsl_decode_workspace = None
++    metadata = SimpleNamespace(
++        is_cuda_graph=False, sequence_lengths=seq_lens, row_req_pool_indices=row_req
++    )
++    monkeypatch.setattr(backend, "_resolve_metadata", lambda forward_batch: metadata)
++    monkeypatch.setattr(qsa_module, "_resolve_trtllm_sparse_decode", lambda: None)
++    layer = SimpleNamespace(layer_id=0, scaling=_DIM**-0.5)
++    # Per-row requests win over the batch's; poison the batch's to prove it.
++    forward_batch = SimpleNamespace(req_pool_indices=torch.zeros_like(row_req))
++
++    outputs = {}
++    for enabled in (False, True):
++        qsa_module._resolve_flydsl_sparse_decode.cache_clear()
++        with envs.SGLANG_ENABLE_QSA_FLYDSL_DECODE.override(enabled):
++            outputs[enabled] = backend._forward_paged_attention(
++                q, layer, forward_batch, indices
++            )
++    qsa_module._resolve_flydsl_sparse_decode.cache_clear()
++    assert backend._flydsl_decode_workspace is not None, "fused path did not run"
++    # Row 0 selects nothing; only the fused kernel defines that output (zeros).
++    torch.testing.assert_close(
++        outputs[True][1:].float(), outputs[False][1:].float(), atol=1e-2, rtol=1e-2
++    )
++
++
++if __name__ == "__main__":
++    import sys
++
++    sys.exit(pytest.main([__file__, "-v"]))

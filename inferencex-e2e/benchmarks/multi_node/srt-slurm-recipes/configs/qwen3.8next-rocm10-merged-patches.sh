@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Qwen3.8-Flash-Next baseline on lmsysorg/sglang-rocm:v0.5.22-rocm10-mi35x-20261018:
-# only merged upstream PRs plus the monokernel, applied to the image's editable
-# AITER (2bb54910) and SGLang (8dee3f6b) checkouts.
+# merged upstream PRs, the monokernel and the hc_mix, GEMM table, QSA and GDN
+# decode PRs, applied to the image's editable AITER (2bb54910) and SGLang
+# (8dee3f6b) checkouts.
 #   - AITER, each the PR's merge diff, in merge order:
 #       ROCm/aiter#6201: gfx950 BF16 GEMM configs for Qwen3.8-Flash-Next
 #       ROCm/aiter#5804: FlyDSL EP MoE (kmk3) and EP MoE GEMM2
@@ -12,12 +13,24 @@
 #       ROCm/aiter#6225: a4w4 aux-sort fused/Opus crossover at 1.33 rows per expert
 #       ROCm/aiter#6050: HY4 MXFP8 heterogeneous MoE fusion, without its .github/
 #         CI files
-#       ROCm/aiter#5993: FlyDSL hc_mix kernel (its SGLang dispatch, #41880, is not
-#         applied, so nothing calls it)
+#       ROCm/aiter#5993: FlyDSL hc_mix kernel, dispatched by sglang#41880
+#   - AITER, open PRs, each the PR head's diff:
+#       ROCm/aiter#5992: FlyDSL causal conv1d prefill and GDN decode/verify
+#       ROCm/aiter#6670: fused FlyDSL QSA sparse decode
+#       ROCm/aiter#6769: gfx950 A8W8 bpreshuffle and BF16 GEMM tunings for
+#         Qwen3.8-Flash-Next (model_configs/, merged in by default)
 #   - SGLang: sgl-project/sglang#45353, the opt-in FlyDSL monokernel for MTP target
 #     verify and draft of up to 8 requests (SGLANG_ENABLE_QWEN4_MONOKERNEL,
 #     _MTP_MONOKERNEL); verify needs the per-draft intermediate SSM states, which
 #     --enable-linear-replayssm-spec drops
+#   - SGLang, open PRs:
+#       sgl-project/sglang#41879: opt-in AITER FlyDSL prefill conv and GDN decode
+#         (SGLANG_AITER_GDN_CONV, SGLANG_AITER_GDN_DECODE), on the image's
+#         gdn_backend.py imports
+#       sgl-project/sglang#41880: FlyDSL hc_mix on gfx950 (on whenever AITER has it)
+#         and the single-kernel hc_combine on ROCm
+#       sgl-project/sglang#45196: QSA decode through the fused FlyDSL sparse decode
+#         (SGLANG_ENABLE_QSA_FLYDSL_DECODE, default on)
 # The image's SGLang already has the merged Qwen3.8 PRs #41282 and #43383.
 # All Python except #6165 and #6467, whose MoE sorting module is removed so AITER's
 # JIT rebuilds it on first use. A patch that no longer applies fails the worker.
@@ -55,8 +68,14 @@ apply /sgl-workspace/aiter aiter-6165-moe-sort-mxfp4-quant.patch
 apply /sgl-workspace/aiter aiter-6225-aux-sort-crossover.patch
 apply /sgl-workspace/aiter aiter-6050-hy4-mxfp8-moe-fusion.patch
 apply /sgl-workspace/aiter aiter-5993-flydsl-hc-mix.patch
+apply /sgl-workspace/aiter aiter-5992-flydsl-gdn-conv-decode.patch
+apply /sgl-workspace/aiter aiter-6670-flydsl-qsa-sparse-decode.patch
+apply /sgl-workspace/aiter aiter-6769-qwen38-gemm-tunings.patch
 rm -rf /sgl-workspace/aiter/aiter/jit/module_moe_sorting_opus.so \
     /sgl-workspace/aiter/aiter/jit/build/module_moe_sorting_opus
 apply /sgl-workspace/sglang sglang-qwen38-monokernel.patch
+apply /sgl-workspace/sglang sglang-41879-aiter-gdn-conv-decode-hooks.patch
+apply /sgl-workspace/sglang sglang-41880-flydsl-hc-mix.patch
+apply /sgl-workspace/sglang sglang-45196-qsa-flydsl-sparse-decode.patch
 
 echo "$digest" > "$marker"
