@@ -10563,3 +10563,9 @@
   description:
     - "Update SGLang image from nightly-dev-20260916-c9a8fba9 to v0.5.22-cu130 and drop a removed SWA env var."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4203
+
+- config-keys:
+    - qwen3.5-fp8-b300-dynamo-sglang-agentic-disagg
+  description:
+    - "Update SGLang image from nightly-dev-cu13-20260918-20518d85 to v0.5.22-cu130"
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4224
