@@ -10503,3 +10503,9 @@
   description:
     - "Update SGLang ROCm image to v0.5.21-rocm720-mi30x; rename cuda-graph-max-bs to cuda-graph-max-bs-decode."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3762
+
+- config-keys:
+    - qwen3.5-fp8-h200-sglang-agentic-hicache-mtp
+  description:
+    - "Update SGLang image from nightly-dev-cu13-20260916-c9a8fba9 to the v0.5.21-cu130 release."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3869
