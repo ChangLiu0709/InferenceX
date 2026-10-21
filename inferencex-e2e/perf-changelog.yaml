@@ -10509,3 +10509,9 @@
   description:
     - "Update SGLang image from nightly-dev-cu13-20260916-c9a8fba9 to the v0.5.21-cu130 release."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3869
+
+- config-keys:
+    - minimaxm3-fp8-mi325x-vllm-agentic-mtp
+  description:
+    - "Update the MI325X MiniMax-M3 vLLM AgentX image from vllm-openai-rocm v0.27.1 to v0.31.0."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3954
