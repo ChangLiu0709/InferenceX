@@ -10569,3 +10569,9 @@
   description:
     - "Update SGLang image from nightly-dev-cu13-20260918-20518d85 to v0.5.22-cu130"
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4224
+
+- config-keys:
+    - glm5.2-fp4-gb200-dynamo-sglang-agentic-mtp-agg
+  description:
+    - "Update the SGLang image from nightly-dev-cu13-20260805-211ee642 to v0.5.22-cu130 and pin Dynamo to b4540b87."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4227
