@@ -1,0 +1,136 @@
+ROCm/aiter#6467, merged as dcb7c7fac0: [HIP] [BUG fix] Initialize reverse route indices before Opus sorting
+dcb7c7fac07cdd9d0b4578a414af3bea0c8f0dc2^1..dcb7c7fac07cdd9d0b4578a414af3bea0c8f0dc2
+
+diff --git a/aiter/fused_moe.py b/aiter/fused_moe.py
+index 314a15d6..52471431 100644
+--- a/aiter/fused_moe.py
++++ b/aiter/fused_moe.py
+@@ -489,14 +489,7 @@ def _moe_sorting_impl(
+         aux_m_indices = torch.empty(
+             max_num_tokens_padded, dtype=dtypes.i32, device=device
+         )
+-        # The sort writes local routes only; EP leaves remote routes at -1,
+-        # which the scatter reduce skips.
+-        if expert_mask is not None:
+-            aux_reverse_sorted = torch.full(
+-                (M * topk,), -1, dtype=dtypes.i32, device=device
+-            )
+-        else:
+-            aux_reverse_sorted = torch.empty(M * topk, dtype=dtypes.i32, device=device)
++        aux_reverse_sorted = torch.empty(M * topk, dtype=dtypes.i32, device=device)
+ 
+     if use_opus:
+         ws_size = aiter.moe_sorting_opus_get_workspace_size(
+diff --git a/csrc/include/moe_sorting_opus.h b/csrc/include/moe_sorting_opus.h
+index ea2e7d99..159c60b4 100644
+--- a/csrc/include/moe_sorting_opus.h
++++ b/csrc/include/moe_sorting_opus.h
+@@ -1133,6 +1133,14 @@ struct MoeSortingKernel
+             return;
+         }
+ 
++        if(kargs.p_reverse_sorted)
++        {
++            opus::index_t* p_reverse_sorted = static_cast<opus::index_t*>(kargs.p_reverse_sorted);
++            const opus::index_t routes      = kargs.tokens * kargs.topk_mdiv.divisor;
++            for(opus::index_t i = threadIdx.x; i < routes; i += kBlockSize)
++                p_reverse_sorted[i] = -1;
++        }
++
+         extern __shared__ char smem[];
+ 
+         return moe_align_block_size_kernel_ex(
+@@ -1371,6 +1379,22 @@ OPUS_D void moe_buf_set_zero_kernel_2d(void* buf,
+     }
+ }
+ 
++template <opus::index_t kBlockSize>
++OPUS_D void moe_sorting_reverse_sorted_set_invalid(void* p_reverse_sorted,
++                                                   opus::index_t tokens,
++                                                   opus::index_t topk)
++{
++    if(p_reverse_sorted == nullptr)
++        return;
++    opus::index_t* p_buf       = reinterpret_cast<opus::index_t*>(p_reverse_sorted);
++    const opus::index_t routes = tokens * topk;
++    for(opus::index_t i = blockIdx.x * kBlockSize + threadIdx.x; i < routes;
++        i += gridDim.x * kBlockSize)
++    {
++        p_buf[i] = -1;
++    }
++}
++
+ } // namespace impl
+ 
+ // TODO: tokens could be from
+@@ -1629,6 +1653,7 @@ struct MoeSortingMultiPhaseKernel_P0_v1
+         const void* p_topk_ids;     // [tokens, topk]
+         const void* p_local_tokens; // [1], if not nullptr, use this as actual tokens
+         void* p_expert_mesh;        // [expert, tokens]
++        void* p_reverse_sorted;
+         opus::index_t tokens; // if p_local_tokens is not nullptr, this indicate the max possible
+                               // tokens used for ws/LDS calculation
+         opus::index_t num_experts;
+@@ -1654,6 +1679,7 @@ struct MoeSortingMultiPhaseKernel_P0_v1
+         k.p_topk_ids     = h.p_topk_ids;
+         k.p_local_tokens = h.p_local_tokens;
+         k.p_expert_mesh  = h.p_ws;
++        k.p_reverse_sorted = h.p_reverse_sorted;
+         k.tokens         = h.tokens;
+         k.num_experts    = h.num_experts;
+         k.mesh_stride    = impl::moe_sorting_mp_mesh_stride(h.tokens);
+@@ -1670,6 +1696,9 @@ struct MoeSortingMultiPhaseKernel_P0_v1
+ 
+     OPUS_D void operator()(Kargs kargs) const
+     {
++        impl::moe_sorting_reverse_sorted_set_invalid<kBlockSize>(
++            kargs.p_reverse_sorted, kargs.tokens, kargs.topk_mdiv.divisor);
++
+         using topk_id_t = opus::vector_t<IndexType, Problem::SubTokenTile>;
+ 
+         const topk_id_t* p_topk_ids = reinterpret_cast<const topk_id_t*>(kargs.p_topk_ids);
+@@ -1758,6 +1787,7 @@ struct MoeSortingMultiPhaseKernel_P0_v2
+ 
+         const void* p_local_expert_mask; // [expert]
+         void* p_expert_cumsum;           // [expert]
++        void* p_reverse_sorted;
+         opus::index_t num_experts;
+     };
+ 
+@@ -1786,6 +1816,7 @@ struct MoeSortingMultiPhaseKernel_P0_v2
+         k.mesh_stride         = impl::moe_sorting_mp_mesh_stride(h.tokens);
+         k.topk_mdiv           = opus::mdiv{static_cast<uint32_t>(h.topk)};
+         k.p_local_expert_mask = h.p_local_expert_mask;
++        k.p_reverse_sorted    = h.p_reverse_sorted;
+         k.num_experts         = h.num_experts;
+         return k;
+     }
+@@ -1802,6 +1833,9 @@ struct MoeSortingMultiPhaseKernel_P0_v2
+ 
+     OPUS_D void operator()(Kargs kargs) const
+     {
++        impl::moe_sorting_reverse_sorted_set_invalid<kBlockSize>(
++            kargs.p_reverse_sorted, kargs.tokens, kargs.topk_mdiv.divisor);
++
+         constexpr opus::index_t index_pack = Problem::SubTokenTile; // always packed
+         __shared__ char smem[GetSmemSize()];
+         using topk_id_t             = opus::vector_t<IndexType, index_pack>;
+diff --git a/csrc/py_itfs_cu/moe_sorting_opus_kernels.cu b/csrc/py_itfs_cu/moe_sorting_opus_kernels.cu
+index 0e91f180..c7335b2b 100644
+--- a/csrc/py_itfs_cu/moe_sorting_opus_kernels.cu
++++ b/csrc/py_itfs_cu/moe_sorting_opus_kernels.cu
+@@ -51,6 +51,14 @@ void moe_sorting_opus_fwd(aiter_tensor_t& topk_ids,
+     HipDeviceGuard device_guard(topk_ids.device_id);
+     const hipStream_t stream = aiter::getCurrentHIPStream();
+ 
++    if(reverse_sorted.has_value())
++    {
++        auto& reverse = reverse_sorted.value();
++        AITER_CHECK(reverse.dtype() == AITER_DTYPE_i32 && reverse.is_contiguous() &&
++                        reverse.numel() >= static_cast<int64_t>(num_tokens) * topk,
++                    "reverse_sorted must be a contiguous int32 buffer for tokens * topk routes");
++    }
++
+     void* ws_ptr = workspace.has_value() ? workspace.value().data_ptr() : nullptr;
+ 
+     moe_sorting_opus(
