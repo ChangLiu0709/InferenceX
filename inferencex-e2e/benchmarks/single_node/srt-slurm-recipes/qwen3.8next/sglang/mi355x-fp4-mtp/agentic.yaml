@@ -83,7 +83,7 @@ base:
 # aiter backend's 0.85 scaling. c8 drafts one token per step (2 verify tokens).
 # c12 and c16 keep ReplaySSM, 2x CONC admission and the default path. c12 and c16
 # capture decode graphs up to their admission, so bursts past CONC stay in a graph,
-# and use mem-fraction-static 0.85 as given (a larger KV pool than the scaled 0.765).
+# and also use mem-fraction-static 0.9 as given.
 override_c1:
   roles:
     agg:
@@ -156,7 +156,6 @@ override_c12:
       args:
         max-running-requests: 24
         cuda-graph-max-bs-decode: 24
-        mem-fraction-static: 0.85
       env:
         SGLANG_AITER_HONOR_EXPLICIT_MEM_FRACTION: '1'
   benchmark:
@@ -170,7 +169,6 @@ override_c16:
       args:
         max-running-requests: 32
         cuda-graph-max-bs-decode: 32
-        mem-fraction-static: 0.85
       env:
         SGLANG_AITER_HONOR_EXPLICIT_MEM_FRACTION: '1'
   benchmark:
