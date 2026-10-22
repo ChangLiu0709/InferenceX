@@ -10832,3 +10832,12 @@
     - "Add GLM-5.3 NVFP4 B300 AgentX on SGLang v0.5.20 (lmsysorg/sglang:v0.5.20-cu130), TP8 with NEXTN MTP K3."
     - "Concurrency 1, 4, 8, 10, 13 and 14 run without host offload; concurrency 22, 24, 25 and 28 use a 300 GB/rank HiCache host tier."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3930
+
+- config-keys:
+    - glm5.2-fp8-b200-sglang-agentic-mtp
+  description:
+    - "Update the SGLang image to nightly-dev-20261020-ab580b2e, pinned by digest."
+    - "Replace the TP8 HiCache c1-c16 grid with TP8 HiCache at c1 (MTP 6 steps, ratio 0.75 write_back) and c4/c8/c12 (MTP 5 steps, mem-fraction 0.88, 169 GB/rank write_through), plus TP8 + DCP8 without host offload at c16/c17/c18/c24 (MTP 5 steps, 16k prefill chunks, prefill delayer batching 2-3 prefills)."
+    - "Request thinking explicitly on the AgentX client and enable checkpoint prefetch and multithreaded weight loading."
+    - "Read SGLang dcp-size in the single-node recipe validator so SGLang points can use dcp-size > 1."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4389
