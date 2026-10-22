@@ -10686,3 +10686,12 @@
   description:
     - "Retune Muse Spark Open GB200 SGLang AgentX concurrency 1, 4, 6, 8, and 10 request admission, decode graph batch limits, prefill-decode interval, and memory allocation; run concurrency 1 without HiCache."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4343
+
+- config-keys:
+    - musespark-fp4-b300-sglang-agentic-dflash
+  scenario-type:
+    - agentic-coding
+  description:
+    - "Replace the Muse Spark Open B300 TP8/EP8 search space with per-concurrency AgentX settings: TP8/EP8 with GPU-resident KV at concurrency 1, 4, 8 and 14; TP4/EP4 with GPU-resident KV at concurrency 4; TP4/EP4 with 120-175 GB per-rank DRAM HiCache at concurrency 10, 16, 20, 28, 36 and 40."
+    - "Tune request admission, decode graph batch limits, memory fraction, SWA/full ratio, prefill-decode interval and chunked prefill per concurrency; enable layernorm SP and MegaMoE at the HiCache points and shortest-prefill-first from concurrency 16."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/XXX
