@@ -10710,3 +10710,9 @@
   description:
     - "Update SGLang image from v0.5.12-cu130 to v0.5.22-cu130 and rename --cuda-graph-max-bs to --cuda-graph-max-bs-decode"
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4282
+
+- config-keys:
+    - dsr1-fp4-mi355x-atom
+  description:
+    - "Update ATOM image from v0.1.7 nightly_202610080328 to the v0.1.8 nightly_202610190554 build"
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4358
