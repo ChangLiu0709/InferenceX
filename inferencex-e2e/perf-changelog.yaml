@@ -10678,3 +10678,11 @@
     - "Tune Muse Spark Open GB300 SGLang AgentX per concurrency (1, 5, 8, 10, 15, 16, 20, 24, 34, 40): scheduling, memory allocation, request admission and decode graph limits, tokenizer workers, and draft attention."
     - "Use 120-150 GB per-rank HiCache (write_through, 0.80 DRAM utilization) at concurrency 16 to 40; set SGLANG_TRTLLM_MHA_DECODE_SEQ_LEN_SPLITS=4 at concurrency 34 and 40."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4342
+
+- config-keys:
+    - musespark-fp4-gb200-sglang-agentic-dflash
+  scenario-type:
+    - agentic-coding
+  description:
+    - "Retune Muse Spark Open GB200 SGLang AgentX concurrency 1, 4, 6, 8, and 10 request admission, decode graph batch limits, prefill-decode interval, and memory allocation; run concurrency 1 without HiCache."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4343
