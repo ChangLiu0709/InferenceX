@@ -10648,3 +10648,9 @@
   description:
     - "Update SGLang image from nightly-dev-cu13-20260901-07c8f729 to v0.5.22-cu130 and pin Dynamo b4540b87"
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4370
+
+- config-keys:
+    - dsr1-fp8-mi325x-sglang
+  description:
+    - "Update SGLang ROCm image to v0.5.22-rocm720-mi30x; rename cuda-graph-max-bs to cuda-graph-max-bs-decode."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4380
