@@ -10704,3 +10704,9 @@
     - "Configure Muse Spark Open B200 SGLang AgentX request admission, scheduling, memory allocation, HiCache, and draft attention per concurrency, adding TP4/EP4 at concurrency 8, 10, 16, and 24 and TP8 at concurrency 6, 10, and 56."
     - "Drop TP8 concurrency 12, 16, 24, 32, 48, and 64."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/XXX
+
+- config-keys:
+    - qwen3.5-fp8-b300-sglang-mtp
+  description:
+    - "Update SGLang image from v0.5.12-cu130 to v0.5.22-cu130 and rename --cuda-graph-max-bs to --cuda-graph-max-bs-decode"
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4282
