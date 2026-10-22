@@ -10716,3 +10716,9 @@
   description:
     - "Update ATOM image from v0.1.7 nightly_202610080328 to the v0.1.8 nightly_202610190554 build"
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4358
+
+- config-keys:
+    - dsr1-fp8-h200-trt
+  description:
+    - "Update TensorRT-LLM image from 1.4.0rc0 to 1.4.0rc1."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4359
