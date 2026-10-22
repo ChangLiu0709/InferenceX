@@ -10722,3 +10722,9 @@
   description:
     - "Update TensorRT-LLM image from 1.4.0rc0 to 1.4.0rc1."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4359
+
+- config-keys:
+    - dsr1-fp8-mi300x-sglang
+  description:
+    - "Update SGLang image from v0.5.21-rocm720-mi30x to v0.5.22-rocm720-mi30x."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4363
