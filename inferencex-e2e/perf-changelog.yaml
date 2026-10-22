@@ -10857,3 +10857,10 @@
     - "Remove the TP4 c64 and DEP4 c64 points."
     - "Image, DSpark settings and all other points are unchanged."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/3837
+
+- config-keys:
+    - glm5.2-fp4-b200-sglang-agentic-mtp
+  description:
+    - "Update SGLang image from nightly-dev-cu13-20260901-07c8f729 to v0.5.22-cu130 and use cuda-graph-max-bs-decode."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4394
+  scenario-type: [agentic-coding]
