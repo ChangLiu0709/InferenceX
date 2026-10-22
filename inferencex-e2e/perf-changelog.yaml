@@ -10636,3 +10636,9 @@
     - "Use lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261019 for MI355X DSv4 disaggregated DSpark AgentX."
     - "Replace concurrency 4 with 1 using eight request slots and decode graph batches 1-8; enable FP8 unified KV at concurrency 1-48, power-of-two decode routing at concurrency 192-512, and MegaMoE prefill EPLB at concurrency 512."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4386
+
+- config-keys:
+    - dsr1-fp8-mi325x-sglang-mtp
+  description:
+    - "Update SGLang image from v0.5.21-rocm720-mi30x to v0.5.22-rocm720-mi30x."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4368
