@@ -10728,3 +10728,9 @@
   description:
     - "Update SGLang image from v0.5.21-rocm720-mi30x to v0.5.22-rocm720-mi30x."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4363
+
+- config-keys:
+    - dsr1-fp8-h200-sglang
+  description:
+    - "Update SGLang image to v0.5.22-cu130 and rename --cuda-graph-max-bs to --cuda-graph-max-bs-decode"
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4313
