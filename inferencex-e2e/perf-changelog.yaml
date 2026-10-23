@@ -11034,3 +11034,12 @@
     - "The image's ATOM revision is the merge of ROCm/ATOM#2591 (midstep GDN state checkpoints, MTP draft KV slot and lookahead allocation) and includes #2549 (GDN state image pack), #2588 and #2599 (prompt hashing and prefix walk off the scheduler thread), #2589 (prompt-end checkpoint margin), #2590 (one-copy accepted-token publish) and #2609 (FlyDSL head-256 plan cap)."
     - "The MTP draft runs as shipped: the checkpoint's FP8 E4M3 128x128-block weights on attention projections, shared and routed experts, BF16 on fc, router gate, shared_expert_gate and norms, with the target's FP8 KV cache. The recipe sets no online quantization."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4309
+
+- config-keys:
+  - kimik3-fp4-gb300-dynamo-vllm-agentic-dspark-mooncake-dcp8-disagg
+  - kimik3-fp4-gb300-dynamo-vllm-agentic-dspark-mooncake-dcp8-agg
+  scenario-type:
+  - agentic-coding
+  description:
+  - 'Refine GB300 Kimi-K3 AgentX points to be good on all four p90 charts: replace the decode-capped 1P2D-2P5D points with uncapped 1P2D c48-64 and 3P4D c240, add specialized-decode 1P3D c16 and 1P2D c24/32, keep 2P3D c240 and aggregated TP16 c1, and drop aggregated TP8 c2/c4. Pin cp-kv-cache-interleave-size to 1 for the specialized-decode disaggregated points.'
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4373
