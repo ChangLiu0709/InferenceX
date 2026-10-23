@@ -11053,3 +11053,10 @@
     - "Pin the MiniMax-M3 B200 vLLM images by digest and retune the TP4 concurrency 15-38 entries, with DRAM KV offload sized to the 1,073 GB node allowance."
     - "Add minimaxm3-fp4-b200-vllm-agentic-mtp-c10 with TP4 and TP8 concurrency 10 and TP4 DRAM concurrency 20 and 32 entries that cap active sequences."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4382
+
+- config-keys:
+    - minimaxm3-fp8-h200-vllm-agentic-mtp
+  description:
+    - "Update the vLLM image from nightly-39983a5e to nightly-83c078d9, pinned by digest."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4429
+  scenario-type: [agentic-coding]
