@@ -10887,3 +10887,10 @@
   description:
     - "Update SGLang image from v0.5.21-cu130 to v0.5.22-cu130."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4396
+
+- config-keys:
+    - minimaxm3-fp8-mi300x-vllm-agentic-mtp
+  description:
+    - "Update the vLLM ROCm image from v0.31.0 to v0.32.0."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4402
+  scenario-type: [agentic-coding]
