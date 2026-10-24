@@ -11100,3 +11100,10 @@
     - "Search space: Balanced TP4 at conc 1-32; TP8 + EP8 with attention DP2 at conc 64-128."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4466
   scenario-type: [agentic-coding]
+
+- config-keys:
+    - glm5.2-fp8-mi325x-sglang-agentic-mtp
+  description:
+    - "Update SGLang ROCm image from v0.5.21-rocm720-mi30x to v0.5.22-rocm720-mi30x."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4427
+  scenario-type: [agentic-coding]
