@@ -11107,3 +11107,10 @@
     - "Update SGLang ROCm image from v0.5.21-rocm720-mi30x to v0.5.22-rocm720-mi30x."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4427
   scenario-type: [agentic-coding]
+
+- config-keys:
+    - dsv41flash-fp4-h200-vllm-agentic-dspark
+  description:
+    - "Update the vLLM image from nightly-cd10ed6f to v0.32.0."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4428
+  scenario-type: [agentic-coding]
