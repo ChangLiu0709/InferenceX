@@ -1,4 +1,4 @@
-ROCm/aiter#5992 (open), head 56f8dd860e: [FlyDSL] [gfx950] Causal conv1d prefill and GDN decode/verify kernels for Qwen3.5/Qwen3.8
+ROCm/aiter#5992, merged as df117fcef5, head 56f8dd860e: [FlyDSL] [gfx950] Causal conv1d prefill and GDN decode/verify kernels for Qwen3.5/Qwen3.8
 gh pr diff 5992
 diff --git a/aiter/ops/flydsl/causal_conv1d_flydsl.py b/aiter/ops/flydsl/causal_conv1d_flydsl.py
 index 677ce9ae53..4f00b345af 100644

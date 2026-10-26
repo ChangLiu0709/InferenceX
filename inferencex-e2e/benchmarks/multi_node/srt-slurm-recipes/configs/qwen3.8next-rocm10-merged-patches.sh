@@ -14,7 +14,7 @@
 #       ROCm/aiter#6050: HY4 MXFP8 heterogeneous MoE fusion, without its .github/
 #         CI files
 #       ROCm/aiter#5993: FlyDSL hc_mix kernel, dispatched by sglang#41880
-#   - AITER, open PRs, each the PR head's diff:
+#   - AITER, each the diff of the PR head that was merged:
 #       ROCm/aiter#5992: FlyDSL causal conv1d prefill and GDN decode/verify
 #       ROCm/aiter#6670: fused FlyDSL QSA sparse decode
 #       ROCm/aiter#6769: gfx950 A8W8 bpreshuffle and BF16 GEMM tunings for

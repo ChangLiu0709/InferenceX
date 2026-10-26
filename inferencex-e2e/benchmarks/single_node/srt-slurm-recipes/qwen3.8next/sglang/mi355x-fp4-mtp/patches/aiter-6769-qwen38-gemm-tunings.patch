@@ -1,4 +1,4 @@
-ROCm/aiter#6769 (open), head 907bc1fd04: [Config] [Perf] Add gfx950 a8w8 bpreshuffle and BF16 GEMM tunings for Qwen3.8 Flash Next
+ROCm/aiter#6769, merged as 8bdd00f38d, head 907bc1fd04: [Config] [Perf] Add gfx950 a8w8 bpreshuffle and BF16 GEMM tunings for Qwen3.8 Flash Next
 gh pr diff 6769
 diff --git a/aiter/configs/model_configs/qwen38_flash_next_a8w8_bpreshuffle_tuned_gemm.csv b/aiter/configs/model_configs/qwen38_flash_next_a8w8_bpreshuffle_tuned_gemm.csv
 index 74f8adb0c1..72fa7e6c74 100644

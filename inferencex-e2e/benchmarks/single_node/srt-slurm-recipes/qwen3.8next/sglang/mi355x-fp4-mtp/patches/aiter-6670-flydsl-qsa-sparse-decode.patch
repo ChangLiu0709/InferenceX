@@ -1,4 +1,4 @@
-ROCm/aiter#6670 (open), head 03e17343bb: [FlyDSL] Add fused QSA sparse decode for gfx950
+ROCm/aiter#6670, merged as 1cb414d390, head 03e17343bb: [FlyDSL] Add fused QSA sparse decode for gfx950
 gh pr diff 6670
 diff --git a/aiter/ops/flydsl/kernels/qsa/__init__.py b/aiter/ops/flydsl/kernels/qsa/__init__.py
 new file mode 100644
