@@ -11290,3 +11290,10 @@
     - "Pin vLLM to digest-pinned nightly-49cb2bbf71cfd36ee5aa33d1e184b1cddff55294; configure TP8 c1 and TP4 c20/c24 without offload, plus TP2 c24/c28 with 749 GB lazy DRAM offload and CUTLASS MSA decode."
     - "Set TP4 c20 max-num-active-seqs to 6 and TP2 c28 Slurm time limit to 02:20:00."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4357
+
+- config-keys:
+    - dsv41flash-fp4-mi325x-vllm-agentic-dspark
+  description:
+    - "Update the vLLM image from nightly-rocm100-3df4ae15 to v0.32.0, pinned by digest."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4496
+  scenario-type: [agentic-coding]
