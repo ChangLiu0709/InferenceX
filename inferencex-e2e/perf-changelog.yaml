@@ -11230,3 +11230,11 @@
     - "Add TP2 points with DRAM KV offload, and adjust the memory settings on the DRAM KV offload points."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/XXX
   scenario-type: [agentic-coding]
+
+- config-keys:
+    - minimaxm31flash-fp4-gb200-sglang-agentic-dspark
+  description:
+    - "Add TP4 points with DRAM KV offload, enable DRAM KV offload on the TP4 + EP4 points, and adjust the memory settings."
+    - "Add TP4 DRAM KV offload points at conc 40, 48 and 56."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4491
+  scenario-type: [agentic-coding]
