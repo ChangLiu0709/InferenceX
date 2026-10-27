@@ -11367,3 +11367,10 @@
     - "Update the vLLM image from nightly 3df4ae15 to the v0.32.0 ROCm release."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4539
   scenario-type: [agentic-coding]
+
+- config-keys:
+    - dsv41flash-fp4-b200-sglang-agentic-dspark
+  description:
+    - "Update SGLang image from nightly-dev-cu13-20261021-c1c287a4 to nightly-dev-cu13-20261026-8252e3af"
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4544
+  scenario-type: [agentic-coding]
