@@ -11353,3 +11353,10 @@
     - "Update the SGLang image from v0.5.21-cu130 to v0.5.22-cu130."
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4529
   scenario-type: [agentic-coding]
+
+- config-keys:
+    - musespark-fp4-gb200-sglang-agentic-dflash
+  description:
+    - "Update the SGLang image from nightly-dev-20261021-c1c287a4 to nightly-dev-20261026-8252e3af, pinned by digest."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4531
+  scenario-type: [agentic-coding]
