@@ -11459,3 +11459,15 @@
   description:
   - 'Update GB300 Kimi-K3 AgentX to image vllm/vllm-openai:nightly-e4a5b5537344b103ed10de7764378ef09604ef3d and Dynamo a0de541ea8c861d5ac01d15953ca529bea68637b, refresh the recipe settings, drop 1P2D c56, and add 3P1D TP8 prefill + DEP16 decode c336 with online MXFP8 target quantization (--quantization-config targets: in_proj_qkvgfab, fused_qkv_a_g_proj and routed-expert up/down projections on both roles, plus o_proj and shared experts on decode; the DSpark draft is not quantized).'
   pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4516
+
+- config-keys:
+    - minimaxm3-fp4-gb200-dynamo-vllm-agentic-agg-mtp
+  scenario-type:
+    - agentic-coding
+  description:
+    - "Move the GB200 MiniMax-M3 NVFP4 Dynamo vLLM AgentX aggregate key to the stock vllm/vllm-openai nightly-5555a2d8 image, pinned by its multi-arch index digest, with Dynamo 1.6.0.dev20261016; the previously pinned nightly-9ea8f3ff tag is no longer on Docker Hub. Dynamo 1.6.0.dev20261014 and later import vLLM's engine-launch helpers lazily, so workers start on this nightly, where get_engine_zmq_addresses was renamed."
+    - "Run eight points: GPU-resident TP4 at C1 (max-num-seqs 2) and C10 (max-num-seqs 16); GPU-resident TP8 on two nodes at C1 (max-num-seqs 2) and C5 (max-num-seqs 8); TP4 lazy SimpleCPU KV offload at C20 (max-num-seqs 8), C22 (max-num-seqs 12), C25 (max-num-seqs 16) and C30 (max-num-seqs 45). The TP4 C15 SimpleCPU point is removed."
+    - "FULL_AND_PIECEWISE CUDA graphs capture 4 x n tokens up to the max-num-seqs batch plus 256-2048; the GPU-resident points also capture 1 and 2 tokens so the EAGLE3 drafter decodes in full graphs. The frontend uses the fastokens tokenizer with an 8 GiB cache."
+    - "Engines set minimax_m3_msa_decode_backend=cutlass. In nightly-5555a2d8 the CUTLASS path engages only at 16 or more concurrent FP8-KV decode requests, so it can take effect only at C25/C30; the other points run Triton MSA decode."
+    - "The shipped BF16 EAGLE3-GQA draft (3 tokens) uses FlashInfer attention with local argmax reduction; AgentX throughput applies the committed golden AL."
+  pr-link: https://github.com/SemiAnalysisAI/InferenceX/pull/4281
