@@ -6,6 +6,10 @@ This document tracks every model benchmarked by InferenceX-e2e: when it was adde
 
 Following the principles of fairness and equitableness, the service-level objective (SLO) we aim for when reviewing and merging PRs is `max(1 day from when pinged on slack, vendor response time)`. Vendor response time is the time vendors take to respond to InferenceX core maintainers' questions, messages, PRs, requests for follow-up reviews, etc. We will probably review and merge PRs sooner than this formula allows, but this is the SLO we aim for.
 
+## Serving-image main-branch policy
+
+For official InferenceX (non-preview) that have hardware support in upstream, established models must use upstream engines images built from the inference engine's upstream `master` branch (or its equivalent default development branch). New models may temporarily use model-enablement branches, but must move to main-branch images within a reasonable time after release.
+
 ## Deprecation policy
 
 InferenceX-e2e runs on a fixed GPU pool with a small team, so scenarios, precisions, and recipe variants that no longer earn their cluster hours are retired. The support matrix below is the current record of what is active and retired; git history and `perf-changelog.yaml` hold past settings.

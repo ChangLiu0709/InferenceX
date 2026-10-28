@@ -330,13 +330,16 @@ against the sign-off body.
   Assess the precision itself under Check 13; unavailable evidence warns there
   and does not become a checklist-format failure.
 
-## Check 6 — Upstream vLLM/SGLang images, and engine-first ordering
+## Check 6 — Upstream images, main-branch provenance, and engine-first ordering
 The checklist makes upstream engine images a HARD guideline: on established hardware,
 vLLM/SGLang submissions must run images published by the upstream projects, not
 vendor forks. Established (NOT "new hardware") SKUs: H100, H200, B200, B300,
 GB200, GB300, MI300X, MI325X, and MI355X.
-Identify each master-config entry this PR adds/changes (in `inferencex-e2e/configs/*-master.yaml`)
-and read its `framework:`, `runner:`, and `image:` fields.
+Identify each affected benchmark configuration, including added, changed, or
+re-enabled entries and existing entries affected by recipe, shared-launcher, or
+image-only changes. Read its effective `framework:`, `runner:`, and image(s),
+including separate prefill/decode images. Apply (a) and (b) to their specified
+frameworks; apply (c) only to official InferenceX (non-preview) submissions.
 - (a) UPSTREAM IMAGE: for entries with `framework: vllm`, the image must come from the
   upstream vLLM Docker Hub org at https://hub.docker.com/u/vllm. In the master configs,
   that looks like `vllm/vllm-openai:<tag>` or `vllm/vllm-openai-rocm:<tag>`. For
@@ -371,7 +374,24 @@ and read its `framework:`, `runner:`, and `image:` fields.
   - PASS if the PR adds only open-source engine entries. For example, a
     `dynamo-sglang` entry does not need an existing `sglang` entry for the same model
     and SKU.
-- N/A if the PR changes no master-config entries (state that in one line).
+- (c) MAIN-BRANCH PROVENANCE: read the current
+  `inferencex-e2e/docs/MODELS.md` section "Serving-image main-branch policy".
+  For official InferenceX (non-preview), established models must use upstream engine
+  images built from the engine's upstream `master` (or equivalent default development
+  branch, such as `main`). New models may temporarily use model-enablement branches,
+  but must transition within a reasonable time after release.
+  - Verify the engine's build branch from available build/source evidence. Do not
+    infer it solely from the registry or image tag, or require the latest branch tip.
+  - FAIL when an established model's official submission uses a non-default-branch
+    image. Allow temporary model-enablement branches for new models; assess reasonable
+    time case by case without inventing a fixed day count, approval form, migration
+    owner, or dated deadline.
+  - Preview submissions are exempt from (c), not from the other applicable checks.
+    If release age, preview status, or build provenance is unclear, identify the
+    uncertainty and request maintainer clarification rather than assert compliance.
+- N/A if the PR affects no benchmark serving configuration, recipe, image, or launch
+  path (state that in one line). Emit one Check 6 row covering all applicable
+  subchecks; any failed subcheck makes Check 6 FAIL.
 
 ## Check 7 — No submissions for deprecated models or scenarios
 Read the current `inferencex-e2e/docs/MODELS.md` in the checked-out default branch. It is the source of
