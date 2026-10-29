@@ -1,0 +1,146 @@
+From 5044779f0f089d0c3d96eaf207a44fe7b55e48e3 Mon Sep 17 00:00:00 2001
+From: Thomas Wang <thomawan@amd.com>
+Date: Wed, 28 Oct 2026 03:33:04 +0800
+Subject: [PATCH] [Feat] [AMD] mono-kernels: Register specs by model type
+ (#46036)
+
+---
+ .../sglang/kernels/plugin_kernels/amd/spec.py | 54 ++++++++++++++-----
+ .../sglang/srt/kernel_plugins/amd/binding.py  | 19 +++++--
+ 2 files changed, 55 insertions(+), 18 deletions(-)
+
+diff --git a/python/sglang/kernels/plugin_kernels/amd/spec.py b/python/sglang/kernels/plugin_kernels/amd/spec.py
+index 34ed571605..4c0689c263 100644
+--- a/python/sglang/kernels/plugin_kernels/amd/spec.py
++++ b/python/sglang/kernels/plugin_kernels/amd/spec.py
+@@ -170,29 +170,55 @@ class MonoSpec(msgspec.Struct, frozen=True):
+         return self.devices[isa].widths
+ 
+ 
+-# backend name -> HF architecture -> the "module:attribute" path of its spec
+-_REGISTRY: dict[str, dict[str, str]] = {}
+-
+-
+-def register(*, backend: str, architecture: str, path: str) -> None:
+-    """Register a module:attribute spec path from a general plugin entry point."""
++# backend name -> (HF architecture, model type or None) -> the "module:attribute"
++# path of its spec
++_REGISTRY: dict[str, dict[tuple[str, Optional[str]], str]] = {}
++
++
++def register(
++    *, backend: str, architecture: str, path: str, model_type: Optional[str] = None
++) -> None:
++    """Register a module:attribute spec path from a general plugin entry point. A
++    spec registered with a ``model_type`` serves only configs of that model type, and
++    is looked up before one registered for the architecture alone: models that share
++    an architecture (DeepSeek-V4 and V4.1) can each have their own."""
+     specs = _REGISTRY.setdefault(backend, {})
+-    if specs.get(architecture, path) != path:
++    key = (architecture, model_type)
++    if specs.get(key, path) != path:
++        of = architecture if model_type is None else f"{architecture} ({model_type})"
+         raise ValueError(
+-            f"monokernel backend {backend!r} already has a spec for {architecture}: "
+-            f"{specs[architecture]}"
++            f"monokernel backend {backend!r} already has a spec for {of}: {specs[key]}"
+         )
+-    specs[architecture] = path
++    specs[key] = path
++
+ 
++def _spec_path(
++    specs: dict[tuple[str, Optional[str]], str],
++    architecture: str,
++    model_type: Optional[str],
++) -> Optional[str]:
++    return specs.get((architecture, model_type)) or specs.get((architecture, None))
+ 
+-def spec_registered(*, backend: str, architectures: Optional[Sequence[str]]) -> bool:
++
++def spec_registered(
++    *,
++    backend: str,
++    architectures: Optional[Sequence[str]],
++    model_type: Optional[str] = None,
++) -> bool:
+     """Whether the backend registers a spec for any architecture, usable or not."""
+     specs = _REGISTRY.get(backend, {})
+-    return any(arch in specs for arch in architectures or ())
++    return any(
++        _spec_path(specs, arch, model_type) is not None for arch in architectures or ()
++    )
+ 
+ 
+ def find_spec(
+-    *, backend: str, architectures: Optional[Sequence[str]], isa: Optional[str]
++    *,
++    backend: str,
++    architectures: Optional[Sequence[str]],
++    isa: Optional[str],
++    model_type: Optional[str] = None,
+ ) -> tuple[Optional[MonoSpec], str]:
+     """The compatible spec and an empty reason, or None and a rejection reason."""
+     if backend not in _REGISTRY:
+@@ -202,7 +228,7 @@ def find_spec(
+         )
+     why = []
+     for arch in architectures or ():
+-        path = _REGISTRY[backend].get(arch)
++        path = _spec_path(_REGISTRY[backend], arch, model_type)
+         if path is None:
+             continue
+         module, _, attr = path.partition(":")
+diff --git a/python/sglang/srt/kernel_plugins/amd/binding.py b/python/sglang/srt/kernel_plugins/amd/binding.py
+index 036024d39c..b1e045657c 100644
+--- a/python/sglang/srt/kernel_plugins/amd/binding.py
++++ b/python/sglang/srt/kernel_plugins/amd/binding.py
+@@ -135,7 +135,10 @@ def monokernel_disable_reasons(
+         return None, ["no GPU is visible"]
+     hf_config = model_config.hf_config
+     spec, why = find_spec(
+-        backend=BACKEND, architectures=hf_config.architectures, isa=isa
++        backend=BACKEND,
++        architectures=hf_config.architectures,
++        isa=isa,
++        model_type=getattr(hf_config, "model_type", None),
+     )
+     if spec is None:
+         return None, [why]
+@@ -274,7 +277,10 @@ def monokernel_weights_iterator(
+     if backend is None:
+         return weights
+     spec, _ = find_spec(
+-        backend=backend, architectures=model.config.architectures, isa=device_isa()
++        backend=backend,
++        architectures=model.config.architectures,
++        isa=device_isa(),
++        model_type=getattr(model.config, "model_type", None),
+     )
+     if spec is None or spec.load_tensor is None:
+         return weights
+@@ -324,14 +330,19 @@ def install_monokernel_forward(
+         return
+     isa = device_isa()
+     archs = hf_config.architectures
+-    spec, why = find_spec(backend=backend, architectures=archs, isa=isa)
++    model_type = getattr(hf_config, "model_type", None)
++    spec, why = find_spec(
++        backend=backend, architectures=archs, isa=isa, model_type=model_type
++    )
+     is_load_observed = "_mono_copies" in model.__dict__
+     copies = model.__dict__.pop("_mono_copies", {})
+     # Ranks branch together; one skipping the collectives below would hang its peers.
+     lookups = _gather_tp(
+         (
+             spec is not None,
+-            spec_registered(backend=backend, architectures=archs),
++            spec_registered(
++                backend=backend, architectures=archs, model_type=model_type
++            ),
+             why,
+             None if spec is None else (spec.name, spec.api_version),
+         )
+-- 
+2.34.1
+

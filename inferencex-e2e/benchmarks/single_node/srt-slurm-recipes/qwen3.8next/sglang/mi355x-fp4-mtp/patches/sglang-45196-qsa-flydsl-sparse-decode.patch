@@ -1,26 +1,24 @@
-sgl-project/sglang#45196 (open), head 71e6ff5001: [Perf][AMD] Qwen3.8: Serve QSA decode with AITER's fused FlyDSL sparse decode on gfx950
-gh pr diff 45196
-diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
-index c1bdf79f565f..ba0e643393a1 100644
---- a/python/sglang/srt/environ.py
-+++ b/python/sglang/srt/environ.py
-@@ -887,6 +887,11 @@ class Envs:
-     # insertion. Requires an AITER build with the fp8_e4m3_unit cache contract.
-     # Enabled by default for supported configurations; set to 0 to disable.
-     SGLANG_M3_USE_AITER_FUSED_QKNORM = EnvBool(True)
-+    # Serve QSA decode/verify on gfx950 with AITER's fused FlyDSL kernel
-+    # (aiter.ops.flydsl.qsa_sparse_decode): it reads the selected KV straight
-+    # from the pool (no gather pass) and splits each row across CTAs, where the
-+    # Triton fallback runs one program per (row, kv head). Other GPUs ignore it.
-+    SGLANG_ENABLE_QSA_FLYDSL_DECODE = EnvBool(True)
-     SGLANG_USE_AITER_AG = EnvBool(True)
-     # Use reduce_scatter (instead of all_reduce + dp_scatter) for the equal-chunk
-     # MAX_LEN DP-MoE combine. Default ON for ROCm/HIP (uses the aiter custom
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Nikolai Protasov <nprotaso@amd.com>
+Date: Thu, 29 Oct 2026 20:34:43 +0000
+Subject: [PATCH] [Perf] [AMD] Qwen3.8: Serve QSA decode with AITER's fused
+ FlyDSL sparse decode on gfx950
+
+From sgl-project/sglang#45196 at d0d0e41da5: the PR's own changes (its merge-base with main to its head), applied to the image's SGLang 5ef99013.
+
+---
+ .../attention/qwen_sparse_attn_backend.py     | 109 ++++++++++++-
+ .../attention/bench_qsa_sparse_decode.py      | 146 ++++++++++++++++++
+ .../attention/qsa/test_qsa_flydsl_decode.py   | 126 +++++++++++++++
+ 3 files changed, 380 insertions(+), 1 deletion(-)
+ create mode 100644 test/registered/kernels/benchmark/attention/bench_qsa_sparse_decode.py
+ create mode 100644 test/registered/kernels/ops/attention/qsa/test_qsa_flydsl_decode.py
+
 diff --git a/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py b/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
-index 31db21423fc5..72ec30834fef 100644
+index 8070b67b23..8866891b4c 100644
 --- a/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
 +++ b/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py
-@@ -16,6 +16,7 @@
+@@ -16,6 +16,7 @@ import msgspec
  import torch
  import torch.nn.functional as F
  
@@ -28,14 +26,28 @@ index 31db21423fc5..72ec30834fef 100644
  from sglang.srt.layers.attention.base_attn_backend import AttentionBackend
  from sglang.srt.layers.attention.qsa.config import (
      is_qwen_qsa,
-@@ -79,6 +80,22 @@ def _resolve_trtllm_sparse_decode():
+@@ -53,7 +54,12 @@ from sglang.srt.mem_cache.memory_pool import HybridLinearKVPool, MHATokenToKVPoo
+ from sglang.srt.mem_cache.qsa_kv_pool import QSATokenToKVPool
+ from sglang.srt.model_executor.forward_batch_info import ForwardMode
+ from sglang.srt.runtime_context import get_spec, get_stream
+-from sglang.srt.utils import is_hip, is_sm100_supported, is_sm120
++from sglang.srt.utils import (
++    is_gfx95_supported,
++    is_hip,
++    is_sm100_supported,
++    is_sm120,
++)
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -77,6 +83,22 @@ def _resolve_trtllm_sparse_decode():
      return trtllm_batch_decode_with_kv_cache
  
  
 +@lru_cache(maxsize=1)
 +def _resolve_flydsl_sparse_decode():
 +    """The fused gfx950 FlyDSL decode module, or None when off or unavailable."""
-+    if not (is_hip() and envs.SGLANG_ENABLE_QSA_FLYDSL_DECODE.get()):
++    if not (envs.SGLANG_USE_AITER.get() and is_gfx95_supported()):
 +        return None
 +    try:
 +        from aiter.ops.flydsl import qsa_sparse_decode as qsa_flydsl
@@ -51,7 +63,7 @@ index 31db21423fc5..72ec30834fef 100644
  @lru_cache(maxsize=1)
  def _resolve_flash_attn_varlen_func():
      from sglang.srt.utils import is_hip, is_sm121
-@@ -253,6 +270,7 @@ def __init__(self, runner=None) -> None:
+@@ -267,6 +289,7 @@ class QwenSparseAttnBackend(AttentionBackend):
          self._mtp_shared_sparse_indices = None
          self._trtllm_workspace = None
          self._trtllm_counters = {}
@@ -59,7 +71,7 @@ index 31db21423fc5..72ec30834fef 100644
          self._graph_extend_lens = None
          self._graph_extend_lens_pin = None
          self._verify_mask = None
-@@ -1814,6 +1832,75 @@ def _forward_trtllm_sparse(
+@@ -1868,6 +1891,75 @@ class QwenSparseAttnBackend(AttentionBackend):
          )
          return output.reshape(q.shape[0], -1)
  
@@ -135,7 +147,7 @@ index 31db21423fc5..72ec30834fef 100644
      def forward_decode(
          self,
          q: torch.Tensor,
-@@ -1870,6 +1957,21 @@ def _forward_paged_attention(
+@@ -1924,6 +2016,21 @@ class QwenSparseAttnBackend(AttentionBackend):
                  trtllm_decode,
              )
  
@@ -159,7 +171,7 @@ index 31db21423fc5..72ec30834fef 100644
          if metadata.is_cuda_graph:
 diff --git a/test/registered/kernels/benchmark/attention/bench_qsa_sparse_decode.py b/test/registered/kernels/benchmark/attention/bench_qsa_sparse_decode.py
 new file mode 100644
-index 000000000000..a2b308e98d58
+index 0000000000..a2b308e98d
 --- /dev/null
 +++ b/test/registered/kernels/benchmark/attention/bench_qsa_sparse_decode.py
 @@ -0,0 +1,146 @@
@@ -311,10 +323,10 @@ index 000000000000..a2b308e98d58
 +    benchmark.run()
 diff --git a/test/registered/kernels/ops/attention/qsa/test_qsa_flydsl_decode.py b/test/registered/kernels/ops/attention/qsa/test_qsa_flydsl_decode.py
 new file mode 100644
-index 000000000000..5c4903d5d853
+index 0000000000..a0dbcf43bb
 --- /dev/null
 +++ b/test/registered/kernels/ops/attention/qsa/test_qsa_flydsl_decode.py
-@@ -0,0 +1,125 @@
+@@ -0,0 +1,126 @@
 +"""QwenSparseAttnBackend wiring of AITER's fused FlyDSL QSA sparse decode (gfx950).
 +
 +Kernel correctness is covered in AITER
@@ -332,13 +344,14 @@ index 000000000000..5c4903d5d853
 +pytest.importorskip("flydsl")
 +qsa_flydsl = pytest.importorskip("aiter.ops.flydsl.qsa_sparse_decode")
 +
++from sglang.srt.utils import is_gfx95_supported
 +from sglang.test.ci.ci_register import register_amd_ci
 +
 +register_amd_ci(est_time=60, suite="stage-b-test-1-gpu-small-amd-mi35x")
 +
 +
 +def _gfx950_available() -> bool:
-+    if not torch.cuda.is_available() or torch.version.hip is None:
++    if not torch.cuda.is_available() or not is_gfx95_supported():
 +        return False
 +    probe = torch.empty(1, 1, 256, dtype=torch.bfloat16, device="cuda")
 +    return qsa_flydsl.can_use_flydsl_qsa_sparse_decode(probe, probe, probe)
@@ -424,7 +437,7 @@ index 000000000000..5c4903d5d853
 +    outputs = {}
 +    for enabled in (False, True):
 +        qsa_module._resolve_flydsl_sparse_decode.cache_clear()
-+        with envs.SGLANG_ENABLE_QSA_FLYDSL_DECODE.override(enabled):
++        with envs.SGLANG_USE_AITER.override(enabled):
 +            outputs[enabled] = backend._forward_paged_attention(
 +                q, layer, forward_batch, indices
 +            )
