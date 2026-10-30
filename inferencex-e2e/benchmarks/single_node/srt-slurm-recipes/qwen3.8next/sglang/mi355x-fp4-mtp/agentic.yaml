@@ -17,7 +17,7 @@ base:
       enabled: false
   engine: sglang
   # Checks out the image's sgl-amd-mono at the merged #29.
-  setup_script: qwen3.8next-rocm10-merged-patches.sh
+  setup_script: qwen3.8next-sgl-amd-mono-29.sh
   roles:
     agg:
       nodes: 1

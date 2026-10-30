@@ -11,7 +11,7 @@
 # and the PLE table on the GPU (no --ple-offload-embedding). The step is skipped
 # when the checkout already has qwen38_flash_next/spec.py.
 set -euo pipefail
-marker=/sgl-workspace/.qwen3.8next-rocm10-merged-patches
+marker=/sgl-workspace/.qwen3.8next-sgl-amd-mono-29
 digest="$(sha256sum "${BASH_SOURCE[0]}" | cut -d' ' -f1)"
 if [[ -f $marker ]]; then
     if [[ "$(cat "$marker")" == "$digest" ]]; then
