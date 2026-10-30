@@ -1,8 +1,7 @@
 # Qwen3.8-Flash-Next Quark MXFP4 MoE (MTP experts included), FP8 attention and
 # FP8 PLE, AgentX on MI355X via SGLang with native NEXTN MTP. The ~116 GiB
-# checkpoint fits on one MI355X, so TP1. Two merged AITER PRs (hc_mix, GEMM
-# tables) are patched into the image and its sgl-amd-mono is moved to the merged
-# monokernel (sgl-amd-mono#29).
+# checkpoint fits on one MI355X, so TP1. The image is used unpatched apart from
+# moving its sgl-amd-mono to the merged monokernel (sgl-amd-mono#29).
 base:
   schema: 2
   name: qwen3.8next-fp4-mi355x-sglang-agentic
@@ -17,9 +16,7 @@ base:
     tachometer:
       enabled: false
   engine: sglang
-  # Merged ROCm/aiter PRs not yet in the image (hc_mix, Qwen3.8 GEMM tunings)
-  # are patched in and sgl-amd-mono is checked out at the merged #29. The patch
-  # files are in patches/ next to this recipe.
+  # Checks out the image's sgl-amd-mono at the merged #29.
   setup_script: qwen3.8next-rocm10-merged-patches.sh
   roles:
     agg:
