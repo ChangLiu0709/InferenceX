@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Qwen3.8-Flash-Next baseline on lmsysorg/sglang-rocm:v0.5.23-rocm10-mi35x-20261030.
-# Nothing is patched: SGLang (17e94c4677) and AITER (285579b6) are used as shipped.
+# AITER (285579b6) is used as shipped. SGLang (17e94c4677) gets one patch, the
+# open sgl-project/sglang#47485 (opt-in AITER tgemm for the BF16 lm_head on gfx950,
+# SGLANG_OPT_AITER_LM_HEAD_GEMM), skipped once the image's SGLang has the flag.
 # SGLang has the monokernel interface and KV layer router (sglang#46979, #46980,
 # #46990) and the spec registration by model type (sglang#46036), but pins
 # sgl-amd-mono at 90c23551, before the Qwen3.8 monokernel. This script moves the
@@ -11,8 +13,12 @@
 # and the PLE table on the GPU (no --ple-offload-embedding). The step is skipped
 # when the checkout already has qwen38_flash_next/spec.py.
 set -euo pipefail
-marker=/sgl-workspace/.qwen3.8next-sgl-amd-mono-29
-digest="$(sha256sum "${BASH_SOURCE[0]}" | cut -d' ' -f1)"
+# srtctl only looks up setup_script here; the patch lives with the single-node
+# recipe and is read through the workspace mount.
+patches=/infmax-workspace/benchmarks/single_node/srt-slurm-recipes/qwen3.8next/sglang/mi355x-fp4-mtp/patches
+[[ -d $patches ]] || { echo "qwen3.8next: $patches not found" >&2; exit 1; }
+marker=/sgl-workspace/.qwen3.8next-rocm10-setup
+digest="$(cat "${BASH_SOURCE[0]}" "$patches"/*.patch | sha256sum | cut -d' ' -f1)"
 if [[ -f $marker ]]; then
     if [[ "$(cat "$marker")" == "$digest" ]]; then
         echo "qwen3.8next setup already done"
@@ -24,6 +30,14 @@ fi
 if [[ -f /sgl-workspace/.qwen3.8next-rocm10-patches ]]; then
     echo "qwen3.8next: container already has the full patch set" >&2
     exit 1
+fi
+
+sglang=/sgl-workspace/sglang
+if grep -q SGLANG_OPT_AITER_LM_HEAD_GEMM "$sglang/python/sglang/srt/environ.py"; then
+    echo "qwen3.8next: SGLang already has SGLANG_OPT_AITER_LM_HEAD_GEMM; skipping sglang-47485"
+else
+    git -c safe.directory="*" -C "$sglang" apply "$patches/sglang-47485-aiter-lm-head-gemm.patch"
+    echo "qwen3.8next patch applied: sglang-47485-aiter-lm-head-gemm.patch"
 fi
 
 # sgl-amd-mono is an editable git install (pip -e git+...), so the package's
