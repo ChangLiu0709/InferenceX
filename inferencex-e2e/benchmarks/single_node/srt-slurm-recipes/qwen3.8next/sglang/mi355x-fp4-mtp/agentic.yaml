@@ -1,8 +1,7 @@
 # Qwen3.8-Flash-Next Quark MXFP4 MoE (MTP experts included), FP8 attention and
 # FP8 PLE, AgentX on MI355X via SGLang with native NEXTN MTP. The ~116 GiB
 # checkpoint fits on one MI355X, so TP1. Merged upstream PRs, the monokernel
-# (sgl-amd-mono#29) and the hc_mix, GEMM table, QSA and GDN decode PRs are
-# patched into the image.
+# (sgl-amd-mono#29) and the hc_mix and GEMM table PRs are patched into the image.
 base:
   schema: 2
   name: qwen3.8next-fp4-mi355x-sglang-agentic
@@ -19,9 +18,8 @@ base:
   engine: sglang
   # Merged ROCm/aiter PRs not yet in the image (Qwen3.8 BF16 GEMM configs, MoE
   # sorting and FlyDSL MoE updates, hc_mix) and the FlyDSL monokernel
-  # (sgl-amd-mono#29, with sglang#46036 for its spec registration), patched into
-  # the upstream ROCm 10 image. The patch files are in patches/ next to this
-  # recipe.
+  # (sgl-amd-mono#29), patched into the upstream ROCm 10 image. The patch files
+  # are in patches/ next to this recipe.
   setup_script: qwen3.8next-rocm10-merged-patches.sh
   roles:
     agg:
@@ -73,11 +71,6 @@ base:
         SGLANG_TIMEOUT_KEEP_ALIVE: '1800'
         SGLANG_ENABLE_SPEC_V2: '1'
         AITER_GDR_FLYDSL: '1'
-        # FlyDSL GDN prefill conv and decode/verify (aiter#5992, sglang#41879).
-        SGLANG_AITER_GDN_CONV: '1'
-        SGLANG_AITER_GDN_DECODE: '1'
-        # The fused FlyDSL QSA sparse decode (aiter#6670, sglang#45196) has no
-        # switch; it runs whenever AITER has the kernel.
   benchmark:
     env:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
@@ -86,7 +79,8 @@ base:
 # One variant per point. c1, c2, c4 and c8 run the FlyDSL
 # monokernel (--enable-amd-monokernel) for MTP target verify and draft (up to 8
 # requests, 3 steps, topk 1, 4 draft tokens, as the base): its verify writes the
-# per-draft intermediate SSM states, so ReplaySSM is off, admission equals the
+# per-draft intermediate SSM states, so ReplaySSM is off; its prelude gathers the
+# PLE n-gram table on the GPU, so the table is not offloaded. Admission equals the
 # decode graph batch, and mem-fraction-static is used as given instead of the
 # aiter backend's 0.85 scaling. SGLang raises at startup if the setup is outside
 # what the kernel covers.
@@ -98,6 +92,7 @@ override_c1:
     agg:
       args:
         enable-linear-replayssm-spec: null
+        ple-offload-embedding: null
         enable-amd-monokernel: true
         max-running-requests: 1
         cuda-graph-max-bs-decode: 1
@@ -113,6 +108,7 @@ override_c2:
     agg:
       args:
         enable-linear-replayssm-spec: null
+        ple-offload-embedding: null
         enable-amd-monokernel: true
         max-running-requests: 2
         cuda-graph-max-bs-decode: 2
@@ -128,6 +124,7 @@ override_c4:
     agg:
       args:
         enable-linear-replayssm-spec: null
+        ple-offload-embedding: null
         enable-amd-monokernel: true
         max-running-requests: 4
         cuda-graph-max-bs-decode: 4
@@ -143,6 +140,7 @@ override_c8:
     agg:
       args:
         enable-linear-replayssm-spec: null
+        ple-offload-embedding: null
         enable-amd-monokernel: true
         max-running-requests: 8
         cuda-graph-max-bs-decode: 8

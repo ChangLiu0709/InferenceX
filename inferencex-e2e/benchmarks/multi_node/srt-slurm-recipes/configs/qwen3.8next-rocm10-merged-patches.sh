@@ -1,34 +1,25 @@
 #!/usr/bin/env bash
-# Qwen3.8-Flash-Next baseline on lmsysorg/sglang-rocm:v0.5.22-rocm10-mi35x-20261026:
-# the monokernel and the hc_mix, GEMM table, QSA and GDN decode PRs, applied to the
-# image's editable AITER (285579b6), SGLang (5ef99013) and sgl-amd-mono (05e0bb02)
-# checkouts.
+# Qwen3.8-Flash-Next baseline on lmsysorg/sglang-rocm:v0.5.23-rocm10-mi35x-20261030:
+# merged PRs that the image does not have yet (hc_mix and the GEMM tables in AITER,
+# the monokernel in sgl-amd-mono), applied to the image's editable AITER (285579b6);
+# the sgl-amd-mono checkout is moved to the merge commit. No open PR is patched in, and SGLang (17e94c4677) is
+# not patched: it has the monokernel interface and KV layer router (sglang#46980),
+# the spec registration by model type (sglang#46036) and hc_mix (sglang#41880).
 #   - AITER, merged after the image's commit:
 #       ROCm/aiter#5993: FlyDSL hc_mix kernel (merge diff), dispatched by
 #         sglang#41880
-#       ROCm/aiter#5992: FlyDSL causal conv1d prefill and GDN decode/verify
-#       ROCm/aiter#6670: fused FlyDSL QSA sparse decode
 #       ROCm/aiter#6769: gfx950 A8W8 bpreshuffle and BF16 GEMM tunings for
-#         Qwen3.8-Flash-Next (model_configs/, merged in by default)
-#     (#5992, #6670 and #6769 as the diff of the PR head that was merged)
-#   - sgl-amd-mono: sgl-project/sgl-amd-mono#29, the FlyDSL monokernel for MTP
-#     target verify and draft of up to 8 requests (--enable-amd-monokernel), at
-#     0298cc497; verify needs the per-draft intermediate SSM states, which
-#     --enable-linear-replayssm-spec drops. Its newest commit (9bdc57a428) reads
-#     SGLang's KV layer router (sglang#46979, #46980, #46990), which the image's
-#     SGLang does not have yet.
-#   - SGLang, merged after the image's commit:
-#       sgl-project/sglang#46036: register monokernel specs by model type (merge
-#         diff; sgl-amd-mono#29 passes model_type)
-#   - SGLang, open PRs (the PR's own changes, merge-base with main to head):
-#       sgl-project/sglang#41879: opt-in AITER FlyDSL prefill conv and GDN decode
-#         (SGLANG_AITER_GDN_CONV, SGLANG_AITER_GDN_DECODE), on the image's
-#         gdn_backend.py imports
-#       sgl-project/sglang#41880: FlyDSL hc_mix on gfx950 (on whenever AITER has it)
-#       sgl-project/sglang#45196: QSA decode through the fused FlyDSL sparse decode
-#         (on whenever AITER has it)
-# The image's AITER already has ROCm/aiter#6201, #5804, #6467, #6165, #6225 and
-# #6050, and its SGLang the merged Qwen3.8 PRs #41282 and #43383.
+#         Qwen3.8-Flash-Next (model_configs/, merged in by default), as the diff
+#         of the PR head that was merged
+#   - sgl-amd-mono: sgl-project/sgl-amd-mono#29, merged as b10f3b71: the FlyDSL
+#     monokernel for MTP target verify and draft of up to 8 requests
+#     (--enable-amd-monokernel). The image pins sgl-amd-mono at 90c23551, so the
+#     editable checkout is moved to b10f3b71 (fetch from GitHub; skipped when the
+#     checkout already has qwen38_flash_next/spec.py). Verify needs the per-draft
+#     intermediate SSM states, which --enable-linear-replayssm-spec drops, and the
+#     PLE table on the GPU (no --ple-offload-embedding).
+# The image's AITER already has ROCm/aiter#6201, #5804, #6467, #6165, #6225,
+# #6050, #5992 and #6670, and its SGLang the merged Qwen3.8 PRs #41282 and #43383.
 # All Python. A patch that no longer applies fails the worker.
 set -euo pipefail
 # srtctl only looks up setup_script here; the patches live with the single-node
@@ -74,13 +65,20 @@ fi
 echo "qwen3.8next: sgl-amd-mono checkout $mono at $(git -c safe.directory="*" -C "$mono" rev-parse --short=8 HEAD)"
 
 apply /sgl-workspace/aiter aiter-5993-flydsl-hc-mix.patch
-apply /sgl-workspace/aiter aiter-5992-flydsl-gdn-conv-decode.patch
-apply /sgl-workspace/aiter aiter-6670-flydsl-qsa-sparse-decode.patch
 apply /sgl-workspace/aiter aiter-6769-qwen38-gemm-tunings.patch
-apply "$mono" sgl-amd-mono-29-qwen38-flash-next-monokernel.patch
-apply /sgl-workspace/sglang sglang-46036-mono-register-by-model-type.patch
-apply /sgl-workspace/sglang sglang-41879-aiter-gdn-conv-decode-hooks.patch
-apply /sgl-workspace/sglang sglang-41880-flydsl-hc-mix.patch
-apply /sgl-workspace/sglang sglang-45196-qsa-flydsl-sparse-decode.patch
+# The pin is the merge commit of sgl-amd-mono#29. The checkout is an editable
+# install, so moving it is the reinstall (pure Python, no dependency change).
+mono_commit=b10f3b71c45a70f504c5cad2d622c3e423196e90
+if [[ -f $mono/sgl_amd_mono/qwen38_flash_next/spec.py ]]; then
+    echo "qwen3.8next: sgl-amd-mono already has qwen38_flash_next; not moving the checkout"
+else
+    for attempt in 1 2 3; do
+        git -c safe.directory="*" -C "$mono" fetch --quiet origin "$mono_commit" && break
+        [[ $attempt -lt 3 ]] || { echo "qwen3.8next: cannot fetch sgl-amd-mono $mono_commit" >&2; exit 1; }
+        sleep 5
+    done
+    git -c safe.directory="*" -C "$mono" checkout --quiet --detach "$mono_commit"
+    echo "qwen3.8next: sgl-amd-mono checked out at $(git -c safe.directory="*" -C "$mono" rev-parse --short=8 HEAD)"
+fi
 
 echo "$digest" > "$marker"
