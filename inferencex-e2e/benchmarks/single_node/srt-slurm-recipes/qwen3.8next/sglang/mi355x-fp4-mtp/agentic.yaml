@@ -1,7 +1,6 @@
 # Qwen3.8-Flash-Next Quark MXFP4 MoE (MTP experts included), FP8 attention and
 # FP8 PLE, AgentX on MI355X via SGLang with native NEXTN MTP. The ~116 GiB
-# checkpoint fits on one MI355X, so TP1. The image's sgl-amd-mono is moved to
-# the merged monokernel (sgl-amd-mono#29).
+# checkpoint fits on one MI355X, so TP1. The upstream image is used unpatched.
 base:
   schema: 2
   name: qwen3.8next-fp4-mi355x-sglang-agentic
@@ -16,8 +15,6 @@ base:
     tachometer:
       enabled: false
   engine: sglang
-  # Checks out the image's sgl-amd-mono at the merged #29.
-  setup_script: qwen3.8next-rocm10-setup.sh
   roles:
     agg:
       nodes: 1
@@ -70,17 +67,12 @@ base:
       AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
       AIPERF_APPLY_CHAT_TEMPLATE: 'true'
 
-# One variant per point. c1, c2, c4 and c8 run the FlyDSL
-# monokernel (--enable-amd-monokernel) for MTP target verify and draft (up to 8
-# requests, 3 steps, topk 1, 4 draft tokens, as the base): its verify writes the
-# per-draft intermediate SSM states, so ReplaySSM is off; its prelude gathers the
-# PLE n-gram table on the GPU, so the table is not offloaded. Admission equals the
-# decode graph batch, and mem-fraction-static is used as given instead of the
-# aiter backend's 0.85 scaling. SGLang raises at startup if the setup is outside
-# what the kernel covers.
-# c12 and c16 keep ReplaySSM, 2x CONC admission and the default path. c12 and c16
-# capture decode graphs up to their admission, so bursts past CONC stay in a graph,
-# and also use mem-fraction-static 0.9 as given.
+# c1, c2, c4 and c8 run the FlyDSL monokernel (--enable-amd-monokernel) for MTP
+# target verify and draft. Its verify writes the per-draft intermediate SSM
+# states, so ReplaySSM is off, and its prelude reads the PLE table on the GPU,
+# so the table is not offloaded. Admission equals the concurrency. c12 and c16
+# keep ReplaySSM, the PLE offload and 2x CONC admission. Every point uses
+# mem-fraction-static as given instead of the aiter backend's 0.85 scaling.
 override_c1:
   roles:
     agg:
